@@ -8,7 +8,6 @@ use std::{
     fs::OpenOptions,
     io::Write,
     path::{Path, PathBuf},
-    thread,
     time::Duration,
 };
 
@@ -222,72 +221,26 @@ impl Default for RegistryFile {
 }
 
 pub(crate) struct RegistryLock {
-    path: PathBuf,
+    _lock: sabine_runtime::FileLock,
 }
 
 impl RegistryLock {
     pub(crate) fn acquire(root: &Path) -> ServiceResult<Self> {
-        std::fs::create_dir_all(root)?;
-        let path = root.join("apps.lock");
-        let deadline = std::time::Instant::now() + Duration::from_secs(10);
-        loop {
-            match OpenOptions::new().write(true).create_new(true).open(&path) {
-                Ok(mut file) => {
-                    writeln!(file, "{}", std::process::id())?;
-                    return Ok(Self { path });
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                    let stale = std::fs::metadata(&path)
-                        .and_then(|metadata| metadata.modified())
-                        .ok()
-                        .and_then(|modified| modified.elapsed().ok())
-                        .is_some_and(|age| age > Duration::from_secs(60));
-                    if stale {
-                        let _ = std::fs::remove_file(&path);
-                        continue;
-                    }
-                    if std::time::Instant::now() >= deadline {
-                        return Err(ServiceError::Io(std::io::Error::new(
-                            std::io::ErrorKind::TimedOut,
-                            "timed out waiting for the app registry",
-                        )));
-                    }
-                    thread::sleep(Duration::from_millis(25));
-                }
-                Err(error) => return Err(error.into()),
-            }
-        }
-    }
-}
-
-impl Drop for RegistryLock {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.path);
+        Ok(Self {
+            _lock: sabine_runtime::FileLock::acquire(
+                &root.join("apps.lock"),
+                Duration::from_secs(10),
+                |_| {},
+            )?,
+        })
     }
 }
 
 pub(crate) fn replace_file(temporary: &Path, destination: &Path) -> std::io::Result<()> {
-    #[cfg(not(target_os = "windows"))]
-    return std::fs::rename(temporary, destination);
-
-    #[cfg(target_os = "windows")]
-    {
-        let backup = destination.with_extension("json.bak");
-        let _ = std::fs::remove_file(&backup);
-        if destination.is_file() {
-            std::fs::rename(destination, &backup)?;
-        }
-        match std::fs::rename(temporary, destination) {
-            Ok(()) => {
-                let _ = std::fs::remove_file(backup);
-                Ok(())
-            }
-            Err(error) => {
-                if backup.is_file() {
-                    let _ = std::fs::rename(backup, destination);
-                }
-                Err(error)
-            }
-        }
+    std::fs::rename(temporary, destination)?;
+    #[cfg(unix)]
+    if let Some(parent) = destination.parent() {
+        std::fs::File::open(parent)?.sync_all()?;
     }
+    Ok(())
 }

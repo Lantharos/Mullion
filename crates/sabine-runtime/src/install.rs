@@ -1,11 +1,12 @@
 use std::{
     fs::OpenOptions,
     io::Write,
-    path::{Path, PathBuf},
+    path::Path,
     thread,
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant},
 };
 
+use crate::FileLock;
 use crate::detect::is_runtime_dir;
 use crate::download::{
     download_file, extract_archive, first_extracted_runtime_dir, latest_install_plan,
@@ -15,7 +16,6 @@ use crate::error::RuntimeError;
 use crate::host::runtime_is_valid;
 use crate::lease::runtime_is_leased;
 use crate::paths::user_runtime_path;
-use crate::process::process_alive;
 use crate::resolve::resolve_runtime;
 use crate::types::{
     RuntimeConfig, RuntimeInfo, RuntimeInstallProgress, RuntimeInstallStep, RuntimeLocation,
@@ -23,7 +23,6 @@ use crate::types::{
 use crate::version::{detect_version, runtime_sort_key};
 
 const INSTALL_LOCK_TIMEOUT: Duration = Duration::from_secs(600);
-const INSTALL_LOCK_STALE_AFTER: Duration = Duration::from_secs(30 * 60);
 const INSTALL_LOCK_WAIT_HEARTBEAT: Duration = Duration::from_secs(3);
 
 pub fn install_user_runtime(config: &RuntimeConfig) -> Result<RuntimeInfo, RuntimeError> {
@@ -316,99 +315,31 @@ pub fn remove_user_runtime_version(version: &str) -> Result<bool, RuntimeError> 
 }
 
 struct RuntimeInstallLock {
-    path: PathBuf,
+    _lock: FileLock,
 }
 
 impl RuntimeInstallLock {
     fn acquire(mut progress: impl FnMut(RuntimeInstallProgress)) -> Result<Self, RuntimeError> {
-        let base = user_runtime_path();
-        std::fs::create_dir_all(&base)?;
-        let path = base.join(".install.lock");
-        let started = Instant::now();
         let mut last_heartbeat = Instant::now()
             .checked_sub(INSTALL_LOCK_WAIT_HEARTBEAT)
             .unwrap_or_else(Instant::now);
-
-        loop {
-            match OpenOptions::new().write(true).create_new(true).open(&path) {
-                Ok(mut file) => {
-                    let _ = writeln!(file, "pid={}", std::process::id());
-                    let _ = writeln!(file, "started={}", unix_timestamp_secs());
-                    return Ok(Self { path });
+        let lock = FileLock::acquire(
+            &user_runtime_path().join(".install.lock"),
+            INSTALL_LOCK_TIMEOUT,
+            |elapsed| {
+                if last_heartbeat.elapsed() >= INSTALL_LOCK_WAIT_HEARTBEAT {
+                    progress(RuntimeInstallProgress::new(
+                        RuntimeInstallStep::Preparing,
+                        None,
+                        format!(
+                            "Waiting for another Sabine runtime operation ({}s)",
+                            elapsed.as_secs()
+                        ),
+                    ));
+                    last_heartbeat = Instant::now();
                 }
-                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                    if lock_is_stale(&path) {
-                        progress(RuntimeInstallProgress::new(
-                            RuntimeInstallStep::Preparing,
-                            None,
-                            "Taking over abandoned runtime install",
-                        ));
-                        let _ = std::fs::remove_file(&path);
-                        continue;
-                    }
-                    let self_wait =
-                        lock_holder_pid(&path).is_some_and(|pid| pid == std::process::id());
-                    if last_heartbeat.elapsed() >= INSTALL_LOCK_WAIT_HEARTBEAT {
-                        let waited = started.elapsed().as_secs();
-                        let message = if self_wait {
-                            format!("Finishing runtime install ({waited}s)")
-                        } else {
-                            let holder = lock_holder_pid(&path)
-                                .map(|pid| format!(" (held by pid {pid})"))
-                                .unwrap_or_default();
-                            format!(
-                                "Waiting for another Sabine runtime install{holder} ({waited}s)"
-                            )
-                        };
-                        progress(RuntimeInstallProgress::new(
-                            RuntimeInstallStep::Preparing,
-                            None,
-                            message,
-                        ));
-                        last_heartbeat = Instant::now();
-                    }
-                    if started.elapsed() >= INSTALL_LOCK_TIMEOUT {
-                        return Err(RuntimeError::InstallationFailed(format!(
-                            "timed out waiting for runtime install lock at {}",
-                            path.display()
-                        )));
-                    }
-                    thread::sleep(Duration::from_millis(200));
-                }
-                Err(error) => return Err(error.into()),
-            }
-        }
+            },
+        )?;
+        Ok(Self { _lock: lock })
     }
-}
-
-impl Drop for RuntimeInstallLock {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.path);
-    }
-}
-
-fn lock_is_stale(path: &Path) -> bool {
-    if let Some(pid) = lock_holder_pid(path) {
-        return !process_alive(pid);
-    }
-    std::fs::metadata(path)
-        .and_then(|metadata| metadata.modified())
-        .ok()
-        .and_then(|modified| modified.elapsed().ok())
-        .is_some_and(|elapsed| elapsed >= INSTALL_LOCK_STALE_AFTER)
-}
-
-fn lock_holder_pid(path: &Path) -> Option<u32> {
-    let contents = std::fs::read_to_string(path).ok()?;
-    contents.lines().find_map(|line| {
-        line.strip_prefix("pid=")
-            .and_then(|value| value.trim().parse::<u32>().ok())
-    })
-}
-
-fn unix_timestamp_secs() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_secs())
-        .unwrap_or_default()
 }

@@ -17,7 +17,7 @@ use artifacts::{
 };
 use state::{
     SystemInstallationState, clear_system_failure, compatibility_for_version, current_installation,
-    finalize_system_update, normalized_state_compatibility, prune_system_versions,
+    lock_system_installation, normalized_state_compatibility, prune_system_versions,
     read_installation_state, record_system_failure, system_update_is_backed_off, versions_dir,
     write_installation_state,
 };
@@ -203,6 +203,12 @@ fn adjacent_service() -> Option<PathBuf> {
 }
 
 fn seed_managed_install(service: &Path) -> ServiceResult<PathBuf> {
+    let _lock = lock_system_installation()?;
+    if let Some((version, directory)) = current_installation()
+        && !managed_system_is_older(&version)
+    {
+        return Ok(directory.join(service_binary_name()));
+    }
     let source_dir = service.parent().ok_or_else(|| {
         ServiceError::Update("bundled Sabine service has no parent directory".to_string())
     })?;
@@ -324,6 +330,7 @@ pub fn repair_system_installation() -> ServiceResult<PathBuf> {
 }
 
 pub fn rollback_system_update(failed_version: &str) -> ServiceResult<Option<PathBuf>> {
+    let _lock = lock_system_installation()?;
     let Some(state) = read_installation_state() else {
         return Ok(None);
     };
@@ -361,6 +368,7 @@ fn install_latest_system(
     mode: SystemUpdateMode,
     on_progress: &mut impl FnMut(PrepareProgress),
 ) -> ServiceResult<Option<StagedSystemUpdate>> {
+    let _lock = lock_system_installation()?;
     let requested_version = match &mode {
         SystemUpdateMode::Required(required) => Some(required.label()),
         SystemUpdateMode::Repair {
@@ -465,8 +473,10 @@ fn install_latest_system(
 }
 
 pub(crate) fn mark_system_update_healthy(version: &str) {
+    let Ok(_lock) = lock_system_installation() else {
+        return;
+    };
     let _ = clear_system_failure(version);
-    let _ = finalize_system_update(version);
 }
 
 pub fn installed_system_compatibility() -> SystemCompatibility {

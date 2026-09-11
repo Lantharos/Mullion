@@ -11,12 +11,17 @@ advances the major. A
 platform system archive and `sabine-release.json` are immutable release inputs. Metadata is signed
 with Ed25519; bootstrap verifies the embedded trust key and artifact SHA-256, then installs the
 binaries into a versioned directory. The active pointer changes atomically and the previous version
-is retained until the replacement daemon reports healthy. The old binary supervises a single-daemon
+is retained as the rollback installation until the next successful upgrade. The old binary supervises a single-daemon
 handoff; failed startup restores the previous pointer and daemon, records the failed release, and
 applies an exponential retry delay. A damaged active installation is silently replaced from signed
 release metadata. The host is compiled against CEF Stable API 133, so the runtime service can
 independently install newer compatible CEF builds. Apps negotiate Sabine behavior and capabilities
 and never request a Chromium version.
+
+Registry writes, runtime installation, and shared-system installation use operating-system file
+locks. A crashed owner releases its lock immediately, and an active operation's lock is never
+stolen because of its age. File replacements preserve the previous destination until the rename
+succeeds, including on Windows.
 
 Routine Sabine and app updates become eligible 24 hours after publication plus a stable
 per-installation rollout offset between zero and six hours. This spreads load and leaves time to

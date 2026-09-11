@@ -3,6 +3,7 @@ mod detect;
 mod diagnostics;
 mod download;
 mod error;
+mod file_lock;
 mod host;
 mod install;
 mod lease;
@@ -17,6 +18,7 @@ pub(crate) const MIN_CEF_MAJOR: &str = "151";
 pub use assets::prepare_runtime_assets;
 pub use download::{DEFAULT_CEF_INDEX_URL, latest_install_plan};
 pub use error::RuntimeError;
+pub use file_lock::FileLock;
 pub use install::{
     install_user_runtime, install_user_runtime_with_progress, prune_user_runtimes,
     quarantine_user_runtime, remove_user_runtime_version, update_user_runtime_with_progress,

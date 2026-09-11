@@ -88,27 +88,6 @@ pub(super) fn prune_system_versions(active: &str, previous: Option<&str>) -> Ser
     Ok(())
 }
 
-pub(super) fn finalize_system_update(version: &str) -> ServiceResult<()> {
-    let Some(mut state) = read_installation_state() else {
-        return Ok(());
-    };
-    if state.active != version {
-        return Ok(());
-    }
-    let Some(previous) = state.previous.take() else {
-        return Ok(());
-    };
-    state.previous_compatibility = None;
-    write_installation_state(&state)?;
-    if previous != version {
-        let directory = versions_dir().join(previous);
-        if directory.is_dir() {
-            let _ = fs::remove_dir_all(directory);
-        }
-    }
-    Ok(())
-}
-
 pub(super) fn normalized_state_compatibility(
     state: &SystemInstallationState,
 ) -> SystemCompatibility {
@@ -183,4 +162,12 @@ pub(super) fn system_update_is_backed_off(version: &str) -> bool {
     let multiplier = 1_u64 << failure.attempts.saturating_sub(1).min(3);
     crate::types::unix_timestamp().saturating_sub(failure.failed_at)
         < UPDATE_SOAK.as_secs().saturating_mul(multiplier)
+}
+
+pub(super) fn lock_system_installation() -> ServiceResult<sabine_runtime::FileLock> {
+    Ok(sabine_runtime::FileLock::acquire(
+        &service_data_dir().join("bin/system.lock"),
+        std::time::Duration::from_secs(600),
+        |_| {},
+    )?)
 }
