@@ -9,8 +9,7 @@ use super::{
     BundleFormat,
     config::BundleApp,
     metadata::{
-        app_run, desktop_entry, flatpak_manifest, info_plist, runtime_manifest, sanitize_path,
-        windows_manifest,
+        app_run, desktop_entry, info_plist, runtime_manifest, sanitize_path, windows_manifest,
     },
 };
 use crate::{bundle::build_target_for_format, icon_assets};
@@ -30,14 +29,36 @@ pub(super) fn stage_bundle(
     out: &Path,
     offline: bool,
 ) -> Result<StagedBundle, String> {
-    if offline
-        && build_target_for_format(format)
-            .is_some_and(|target| target.as_str() != std::env::consts::OS)
-    {
-        return Err("Offline bundles must be built on their target operating system so the runtime and service match the application".to_string());
+    if let Some(web) = &app.web {
+        web.assets()?;
     }
     let executable = executable_name(app, format);
-    let root = out.join(format.as_str()).join(sanitize_path(&app.id));
+    let parent = out.join(format.as_str());
+    fs::create_dir_all(&parent).map_err(|error| error.to_string())?;
+    let root = parent
+        .canonicalize()
+        .map_err(|error| error.to_string())?
+        .join(sanitize_path(&app.id));
+    if root.is_symlink() {
+        return Err("bundle staging directory must not be a symlink".to_string());
+    }
+    for source in [&app.source_dir, binary] {
+        if source
+            .canonicalize()
+            .map_err(|error| error.to_string())?
+            .starts_with(&root)
+        {
+            return Err("bundle staging directory would overwrite its source".to_string());
+        }
+    }
+    if let Some(web) = &app.web
+        && let Some((source, _)) = web.assets()?
+    {
+        let source = source.canonicalize().map_err(|error| error.to_string())?;
+        if root.starts_with(&source) || source.starts_with(&root) {
+            return Err("bundle staging directory overlaps its web assets".to_string());
+        }
+    }
     if root.exists() {
         fs::remove_dir_all(&root).map_err(|error| error.to_string())?;
     }
@@ -220,13 +241,6 @@ fn stage_unix_root(
         desktop_entry(app, executable, linux_icon_path(app, format).as_deref()),
     )
     .map_err(|error| error.to_string())?;
-    if format == BundleFormat::Linux {
-        fs::write(
-            root.join(format!("{}.flatpak.json", app.id)),
-            flatpak_manifest(app, executable),
-        )
-        .map_err(|error| error.to_string())?;
-    }
     let install_mode = if matches!(format, BundleFormat::Deb | BundleFormat::Rpm) {
         AppInstallMode::Package
     } else {
@@ -258,7 +272,7 @@ fn stage_unix_manifest(
             &format!("../{}/web", app.id),
             install_mode,
             package_kind,
-        ),
+        )?,
     )
     .map_err(|error| error.to_string())
 }
@@ -310,7 +324,7 @@ fn stage_resources(
     fs::create_dir_all(resources).map_err(|error| error.to_string())?;
     fs::write(
         resources.join("Sabine.toml"),
-        runtime_manifest(app, "web", install_mode, package_kind),
+        runtime_manifest(app, "web", install_mode, package_kind)?,
     )
     .map_err(|error| error.to_string())?;
     if let Some(icon) = &app.icon
@@ -321,17 +335,9 @@ fn stage_resources(
         icon_assets::stage_icon_set(&app.id, icon, &resources.join("icons"))?;
     }
     if let Some(web) = &app.web
-        && web.has_local_assets
+        && let Some((source, _)) = web.assets()?
     {
-        let web_source = if web.dist.exists() {
-            web.dist.as_path()
-        } else {
-            web.entry.parent().unwrap_or(&web.root)
-        };
-        if web_source.exists() {
-            copy_dir_recursive(web_source, &resources.join("web"))
-                .map_err(|error| error.to_string())?;
-        }
+        copy_dir_recursive(source, &resources.join("web")).map_err(|error| error.to_string())?;
     }
     Ok(())
 }

@@ -1,7 +1,5 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
-use std::path::PathBuf;
-
 use sabine::{
     BridgeCommandDescriptor, BridgeResponse, SabineLifecyclePolicy, SabineWindow,
     SabineWindowControlAction, WindowRegion, WindowRegionRect,
@@ -12,18 +10,18 @@ const SIDEBAR_WIDTH: i32 = 260;
 
 fn main() {
     let args = std::env::args().collect::<Vec<_>>();
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let mode = ExampleChromeMode::from_args(&args);
-    let entry = mode.entry(&manifest_dir);
     println!("Sabine standalone notes example");
     println!("chrome mode: {}", mode.label());
     SabineWindow::main(move |window| {
         let window = mode.apply(
             window
-                .app_id("com.sabine.notes")
-                .title("Sabine Notes")
                 .size(900, 640)
-                .entry(entry)
+                .content_suffix(if mode.uses_app_chrome() {
+                    "?chrome=app"
+                } else {
+                    ""
+                })
                 .lifecycle_policy(SabineLifecyclePolicy::browser_tab())
                 .bridge_descriptor_handler(
                     BridgeCommandDescriptor::new("notes.create").target("desktop"),
@@ -76,16 +74,6 @@ impl ExampleChromeMode {
             Self::Frameless => "app-drawn frameless window",
             Self::Glass => "native chrome glass window",
         }
-    }
-
-    fn entry(self, manifest_dir: &std::path::Path) -> String {
-        let path = manifest_dir.join("ui/index.html");
-        let suffix = if self.uses_app_chrome() {
-            "?chrome=app"
-        } else {
-            ""
-        };
-        format!("{}{}", path.display(), suffix)
     }
 
     fn uses_app_chrome(self) -> bool {

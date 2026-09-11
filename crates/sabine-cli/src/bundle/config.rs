@@ -31,6 +31,30 @@ pub(super) struct WebBundle {
     pub allowed_origins: Vec<String>,
 }
 
+impl WebBundle {
+    pub fn assets(&self) -> Result<Option<(&Path, PathBuf)>, String> {
+        if !self.has_local_assets {
+            return Ok(None);
+        }
+        let source = self.dist.as_path();
+        let entry = self
+            .entry
+            .strip_prefix(source)
+            .ok()
+            .filter(|path| !path.as_os_str().is_empty())
+            .map(Path::to_path_buf)
+            .or_else(|| self.entry.file_name().map(PathBuf::from))
+            .ok_or_else(|| "web entry has no filename".to_string())?;
+        if !source.join(&entry).is_file() {
+            return Err(format!(
+                "web entry was not found at {}; build the web assets before bundling",
+                source.join(&entry).display()
+            ));
+        }
+        Ok(Some((source, entry)))
+    }
+}
+
 #[derive(Debug, Default)]
 pub(super) struct ConfigOverrides {
     pub id: Option<String>,
@@ -83,8 +107,8 @@ pub(super) fn resolve_app(source: &Path, overrides: ConfigOverrides) -> Result<B
         .as_ref()
         .map(|path| source_dir.join(path))
         .unwrap_or_else(|| source_dir.join("Cargo.toml"));
-    let cargo_package = cargo_package_name(&cargo_manifest)
-        .ok_or_else(|| format!("missing package name in {}", cargo_manifest.display()))?;
+    let cargo = super::cargo_metadata::CargoPackage::read(&cargo_manifest)?;
+    let cargo_package = cargo.string("name")?;
     let web = resolve_web(&source_dir, &sabine.web, &overrides)?;
 
     let name = overrides
@@ -95,17 +119,38 @@ pub(super) fn resolve_app(source: &Path, overrides: ConfigOverrides) -> Result<B
         .id
         .or(sabine.app.id)
         .unwrap_or_else(|| format!("dev.sabine.{}", sanitize_id(&name)));
-    let version = overrides.version.or(sabine.app.version).unwrap_or_else(|| {
-        cargo_package_version(&cargo_manifest).unwrap_or_else(|| "0.1.0".to_string())
-    });
+    let version = match overrides.version.or(sabine.app.version) {
+        Some(version) => version,
+        None => cargo.string("version")?,
+    };
     let icon = sabine
         .app
         .icon
         .map(|icon| source_dir.join(icon))
         .or_else(|| detect_icon(&source_dir));
 
+    if !sabine_service::valid_app_id(&id) || matches!(id.as_str(), "." | "..") {
+        return Err("app id must contain lowercase letters, digits, dots or hyphens and must not be a relative path".to_string());
+    }
+    for (field, value) in [("name", &name), ("version", &version)] {
+        if value.trim().is_empty() || value.chars().any(char::is_control) {
+            return Err(format!(
+                "app {field} must be nonempty and contain no control characters"
+            ));
+        }
+    }
+    semver::Version::parse(&version).map_err(|error| format!("invalid app version: {error}"))?;
+    for mime in &sabine.app.mime_types {
+        if !mime.contains('/')
+            || !mime
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"/-._+".contains(&byte))
+        {
+            return Err(format!("invalid app MIME type: {mime}"));
+        }
+    }
     Ok(BundleApp {
-        id: sanitize_id(&id),
+        id,
         name,
         version,
         icon,
@@ -285,43 +330,11 @@ fn detect_web_build_command(root: &Path) -> Option<String> {
     crate::web_detect::detect_web_build_command(root)
 }
 
-fn cargo_package_name(path: &Path) -> Option<String> {
-    cargo_package_value(path, "name")
-}
-
-fn cargo_package_version(path: &Path) -> Option<String> {
-    cargo_package_value(path, "version")
-}
-
-fn cargo_package_value(path: &Path, key: &str) -> Option<String> {
-    let text = fs::read_to_string(path).ok()?;
-    let mut in_package = false;
-    for line in text.lines() {
-        let trimmed = line.trim();
-        if trimmed.starts_with('[') {
-            in_package = trimmed == "[package]";
-            continue;
-        }
-        if in_package && trimmed.starts_with(key) {
-            return toml_string_value(trimmed);
-        }
-    }
-    None
-}
-
-fn toml_string_value(line: &str) -> Option<String> {
-    let value = line.split_once('=')?.1.trim();
-    value
-        .strip_prefix('"')
-        .and_then(|value| value.strip_suffix('"'))
-        .map(ToOwned::to_owned)
-}
-
 fn sanitize_id(value: &str) -> String {
     let output = value
         .chars()
         .map(|ch| {
-            if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '-' | '_') {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '-') {
                 ch.to_ascii_lowercase()
             } else {
                 '-'

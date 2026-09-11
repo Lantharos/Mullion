@@ -62,6 +62,7 @@ fn package_deb(
     if command_exists("dpkg-deb") {
         ensure_parent(&artifact)?;
         run(Command::new("dpkg-deb")
+            .arg("--root-owner-group")
             .arg("--build")
             .arg(&staged.app_dir)
             .arg(&artifact))?;
@@ -72,9 +73,9 @@ fn package_deb(
             &shell_script(&[
                 &mkdir_parent_line(&artifact),
                 &format!(
-                    "dpkg-deb --build '{}' '{}'",
-                    staged.app_dir.display(),
-                    artifact.display()
+                    "dpkg-deb --root-owner-group --build {} {}",
+                    shell_quote(&staged.app_dir.display().to_string()),
+                    shell_quote(&artifact.display().to_string())
                 ),
             ]),
         )?;
@@ -120,9 +121,10 @@ fn package_rpm(
         write_script(
             &staged.root.join("build-rpm.sh"),
             &shell_script(&[&format!(
-                "rpmbuild -bb '{}' --buildroot '{}'",
-                spec.display(),
-                staged.app_dir.display()
+                "rpmbuild -bb {} --buildroot {} --define {}",
+                shell_quote(&spec.display().to_string()),
+                shell_quote(&staged.root.join("rpm-buildroot").display().to_string()),
+                shell_quote(&format!("sabine_source {}", staged.app_dir.display()))
             )]),
         )?;
         result
@@ -167,9 +169,9 @@ fn package_appimage(
             &shell_script(&[
                 &mkdir_parent_line(&artifact),
                 &format!(
-                    "appimagetool '{}' '{}'",
-                    staged.app_dir.display(),
-                    artifact.display()
+                    "appimagetool {} {}",
+                    shell_quote(&staged.app_dir.display().to_string()),
+                    shell_quote(&artifact.display().to_string())
                 ),
             ]),
         )?;
@@ -210,10 +212,10 @@ fn package_dmg(
             &shell_script(&[
                 &mkdir_parent_line(&artifact),
                 &format!(
-                    "hdiutil create -volname '{}' -srcfolder '{}' -ov -format UDZO '{}'",
-                    app.name,
-                    staged.app_dir.display(),
-                    artifact.display()
+                    "hdiutil create -volname {} -srcfolder {} -ov -format UDZO {}",
+                    shell_quote(&app.name),
+                    shell_quote(&staged.app_dir.display().to_string()),
+                    shell_quote(&artifact.display().to_string())
                 ),
             ]),
         )?;
@@ -262,9 +264,9 @@ fn package_msi(
             &shell_script(&[
                 &mkdir_parent_line(&artifact),
                 &format!(
-                    "wix build -arch x64 '{}' -o '{}'",
-                    wxs.display(),
-                    artifact.display()
+                    "wix build -arch x64 -wx -pdbtype none {} -o {}",
+                    shell_quote(&wxs.display().to_string()),
+                    shell_quote(&artifact.display().to_string())
                 ),
             ]),
         )?;
@@ -313,7 +315,10 @@ fn package_exe(
             &staged.root.join("build-exe.sh"),
             &shell_script(&[
                 &mkdir_parent_line(&artifact),
-                &format!("makensis '{}'", script.display()),
+                &format!(
+                    "makensis -WX {}",
+                    shell_quote(&script.display().to_string())
+                ),
             ]),
         )?;
         result
@@ -338,6 +343,7 @@ fn tar_gz(source: &Path, artifact: &Path, result: &mut PackageResult) -> Result<
             .arg(parent)
             .arg("-czf")
             .arg(artifact)
+            .arg("--")
             .arg(source_name))?;
         result.artifacts.push(artifact.to_path_buf());
     } else {
@@ -378,7 +384,7 @@ fn ensure_parent(path: &Path) -> Result<(), String> {
 
 fn mkdir_parent_line(path: &Path) -> String {
     path.parent()
-        .map(|parent| format!("mkdir -p '{}'", parent.display()))
+        .map(|parent| format!("mkdir -p {}", shell_quote(&parent.display().to_string())))
         .unwrap_or_else(|| "true".to_string())
 }
 
@@ -429,4 +435,8 @@ fn make_executable(path: &Path) -> io::Result<()> {
         let _ = path;
         Ok(())
     }
+}
+
+fn shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\"'\"'"))
 }

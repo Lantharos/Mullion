@@ -1,0 +1,8 @@
+[app]
+id = "com.sabine.notes"
+name = "Sabine Notes"
+version = "0.1.0"
+
+[web]
+root = "ui"
+entry = "ui/index.html"

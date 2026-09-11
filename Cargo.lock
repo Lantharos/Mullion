@@ -2808,6 +2808,7 @@ dependencies = [
  "sabine-host",
  "sabine-runtime",
  "sabine-service",
+ "semver",
  "serde",
  "serde_json",
  "sha2",

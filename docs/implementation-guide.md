@@ -415,6 +415,14 @@ platform registration belongs in `sabine-platform` or `sabine-service`; CEF code
 The CLI reads `Sabine.toml`, builds web assets and the selected Rust package, writes a normalized
 production manifest into the platform resource layout, stages the remaining runtime files and
 metadata, and invokes a local package tool when available. Apps do not locate or copy manifests.
+Bundle versions use SemVer and inherit `package.version` from Cargo, including workspace values,
+when `[app].version` is absent. App IDs contain lowercase letters, digits, dots and hyphens.
+The configured web output and entry must exist before staging; `--no-web-build` packages an
+existing build. The output directory must not overlap the web assets or contain the source project.
+Linux launchers forward file and URL arguments. Generated package scripts support paths containing
+spaces and apostrophes. The `linux` target produces a filesystem tarball; Flatpak packaging is not
+implemented.
+
 `sabine dev` passes the source manifest and development URL directly to the runtime; `dev_url` and
 `dev_port` are therefore never baked into production launch behavior.
 

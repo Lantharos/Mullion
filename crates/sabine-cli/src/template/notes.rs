@@ -56,7 +56,7 @@ fn notes_index_html() -> &'static str {
     <title>Notes</title>
     <script>
       document.documentElement.dataset.chrome =
-        new URLSearchParams(location.search).get("chrome") || "system";
+        new URLSearchParams(location.search).get("chrome") || "app";
     </script>
     <link rel="stylesheet" href="./styles.css" />
   </head>

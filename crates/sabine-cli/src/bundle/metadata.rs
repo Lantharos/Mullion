@@ -6,7 +6,7 @@ pub(super) fn runtime_manifest(
     web_directory: &str,
     install_mode: AppInstallMode,
     package_kind: Option<AppArtifactKind>,
-) -> String {
+) -> Result<String, String> {
     let mut manifest = format!(
         "[app]\nid = \"{}\"\nname = \"{}\"\nversion = \"{}\"\n",
         quote(&app.id),
@@ -15,20 +15,7 @@ pub(super) fn runtime_manifest(
     );
     if let Some(web) = &app.web {
         manifest.push_str("\n[web]\n");
-        if web.has_local_assets {
-            let source = if web.dist.exists() {
-                web.dist.as_path()
-            } else {
-                web.entry.parent().unwrap_or(&web.root)
-            };
-            let relative_entry = web
-                .entry
-                .strip_prefix(source)
-                .ok()
-                .filter(|entry| !entry.as_os_str().is_empty())
-                .map(ToOwned::to_owned)
-                .or_else(|| web.entry.file_name().map(Into::into))
-                .unwrap_or_else(|| "index.html".into());
+        if let Some((_, relative_entry)) = web.assets()? {
             let entry = std::path::Path::new(web_directory).join(relative_entry);
             manifest.push_str(&format!(
                 "entry = \"{}\"\n",
@@ -77,7 +64,7 @@ pub(super) fn runtime_manifest(
             manifest.push_str(&format!("package_kind = \"{}\"\n", kind.config_value()));
         }
     }
-    manifest
+    Ok(manifest)
 }
 
 pub(super) fn desktop_entry(app: &BundleApp, executable: &str, icon: Option<&str>) -> String {
@@ -86,9 +73,9 @@ pub(super) fn desktop_entry(app: &BundleApp, executable: &str, icon: Option<&str
         .unwrap_or_default();
     let mime_types = mime_type_line(&app.mime_types);
     format!(
-        "[Desktop Entry]\nType=Application\nName={}\nExec={}\n{}{}Terminal=false\nCategories=Utility;\nStartupNotify=true\nStartupWMClass={}\n",
+        "[Desktop Entry]\nType=Application\nName={}\nExec={} %U\n{}{}Terminal=false\nCategories=Utility;\nStartupNotify=true\nStartupWMClass={}\n",
         desktop_value(&app.name),
-        desktop_value(executable),
+        desktop_exec(executable),
         icon,
         mime_types,
         desktop_value(&app.id)
@@ -128,22 +115,14 @@ pub(super) fn windows_manifest(app: &BundleApp) -> String {
     format!(
         r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
-  <assemblyIdentity version="{}.0" processorArchitecture="*" name="{}" type="win32"/>
+  <assemblyIdentity version="{}" processorArchitecture="*" name="{}" type="win32"/>
   <description>{}</description>
   <dependency><dependentAssembly><assemblyIdentity type="win32" name="Microsoft.Windows.Common-Controls" version="6.0.0.0" processorArchitecture="*" publicKeyToken="6595b64144ccf1df" language="*"/></dependentAssembly></dependency>
 </assembly>
 "#,
-        xml(&app.version),
+        windows_version(&app.version),
         xml(&app.id),
         xml(&app.name)
-    )
-}
-
-pub(super) fn flatpak_manifest(app: &BundleApp, executable: &str) -> String {
-    format!(
-        "{{\"app-id\":\"{}\",\"runtime\":\"org.freedesktop.Platform\",\"runtime-version\":\"24.08\",\"sdk\":\"org.freedesktop.Sdk\",\"command\":\"{}\",\"modules\":[]}}\n",
-        json(&app.id),
-        json(executable)
     )
 }
 
@@ -292,11 +271,8 @@ pub(super) fn sanitize_path(value: &str) -> String {
 }
 
 fn quote(value: &str) -> String {
-    value.replace('\\', "\\\\").replace('"', "\\\"")
-}
-
-pub(super) fn json(value: &str) -> String {
-    quote(value)
+    let encoded = serde_json::to_string(value).expect("string serialization");
+    encoded[1..encoded.len() - 1].to_string()
 }
 
 fn xml(value: &str) -> String {
@@ -333,4 +309,19 @@ fn debian_name(value: &str) -> String {
 
 fn rpm_name(value: &str) -> String {
     value.replace(['.', '_'], "-")
+}
+
+fn desktop_exec(value: &str) -> String {
+    let escaped = value
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('`', "\\`")
+        .replace('$', "\\$")
+        .replace('%', "%%");
+    format!("\"{}\"", escaped.replace('\\', "\\\\"))
+}
+
+fn windows_version(version: &str) -> String {
+    let version = semver::Version::parse(version).expect("validated app version");
+    format!("{}.{}.{}.0", version.major, version.minor, version.patch)
 }

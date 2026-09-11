@@ -1,3 +1,4 @@
+mod cargo_metadata;
 mod config;
 mod metadata;
 mod package;
@@ -111,6 +112,13 @@ pub fn bundle(options: BundleOptions) -> Result<ExitCode, String> {
     let Some(format) = BundleFormat::parse(&options.target) else {
         return Err("unknown bundle target; use linux, portable, deb, rpm, appimage, windows, exe, msi, macos, or dmg".to_string());
     };
+    if options.offline
+        && build_target_for_format(format)
+            .is_some_and(|target| target.as_str() != std::env::consts::OS)
+    {
+        return Err("Offline bundles must be built on their target operating system so the runtime and service match the application".to_string());
+    }
+    let out = absolute_path(options.out)?;
     let app = config::resolve_app(
         &options.source,
         ConfigOverrides {
@@ -141,7 +149,7 @@ pub fn bundle(options: BundleOptions) -> Result<ExitCode, String> {
         ));
     }
 
-    let staged = stage_bundle(&app, format, &binary, &options.out, options.offline)?;
+    let staged = stage_bundle(&app, format, &binary, &out, options.offline)?;
     let packaged = package_bundle(&app, format, &staged)?;
     if options.json {
         println!("{}", bundle_json(&app, format, &staged, &packaged));
@@ -286,30 +294,13 @@ fn bundle_json(
     staged: &stage::StagedBundle,
     packaged: &package::PackageResult,
 ) -> String {
-    let artifacts = packaged
-        .artifacts
-        .iter()
-        .map(|path| format!("\"{}\"", json(&path.display().to_string())))
-        .collect::<Vec<_>>()
-        .join(",");
-    let notes = packaged
-        .notes
-        .iter()
-        .map(|note| format!("\"{}\"", json(note)))
-        .collect::<Vec<_>>()
-        .join(",");
-    format!(
-        "{{\"ok\":true,\"target\":\"{}\",\"app\":{{\"id\":\"{}\",\"name\":\"{}\",\"version\":\"{}\"}},\"path\":\"{}\",\"artifacts\":[{}],\"notes\":[{}]}}",
-        format.as_str(),
-        json(&app.id),
-        json(&app.name),
-        json(&app.version),
-        json(&staged.root.display().to_string()),
-        artifacts,
-        notes
-    )
-}
-
-fn json(value: &str) -> String {
-    value.replace('\\', "\\\\").replace('"', "\\\"")
+    serde_json::json!({
+        "ok": true,
+        "target": format.as_str(),
+        "app": { "id": app.id, "name": app.name, "version": app.version },
+        "path": staged.root,
+        "artifacts": packaged.artifacts,
+        "notes": packaged.notes,
+    })
+    .to_string()
 }
