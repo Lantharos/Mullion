@@ -234,7 +234,7 @@ impl OsrNativeHost {
                 return;
             }
         };
-        let child = match command.spawn() {
+        let mut child = match command.spawn() {
             Ok(child) => child,
             Err(error) => {
                 self.awaiting_connection = false;
@@ -243,6 +243,7 @@ impl OsrNativeHost {
                 return;
             }
         };
+        sabine_runtime::capture_diagnostics(&mut child, "cef");
         start_socket_reader(
             generation,
             listener,

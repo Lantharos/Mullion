@@ -178,7 +178,7 @@ pub(crate) fn spawn_osr_host_child(
     command
         .arg(OSR_HOST_ARG)
         .arg(&host_config_path)
-        .stderr(Stdio::inherit());
+        .stderr(Stdio::piped());
     prepare_bridge_command(&mut command, &BridgeHandlers::default());
     prepare_child_command(&mut command);
     #[cfg(target_os = "linux")]
@@ -187,11 +187,13 @@ pub(crate) fn spawn_osr_host_child(
             message: format!("failed to acquire Sabine OSR Wayland connection: {error}"),
         }
     })?;
-    command
+    let mut child = command
         .spawn()
         .map_err(|error| SabineError::CreationFailed {
             message: format!("failed to launch Sabine OSR host: {error}"),
-        })
+        })?;
+    sabine_runtime::capture_diagnostics(&mut child, "osr");
+    Ok(child)
 }
 
 pub(crate) fn attach_open_window(
@@ -364,7 +366,7 @@ pub(crate) fn cef_osr_command(
     }
     command.stdin(Stdio::null());
     command.stdout(Stdio::null());
-    command.stderr(Stdio::inherit());
+    command.stderr(Stdio::piped());
     #[cfg(target_os = "linux")]
     crate::osr::wayland_broker::prepare_child(&mut command, false)
         .map_err(|error| format!("could not acquire CEF Wayland connection: {error}"))?;

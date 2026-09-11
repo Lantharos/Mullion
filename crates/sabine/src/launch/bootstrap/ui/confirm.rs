@@ -10,8 +10,8 @@ use winit::{
 
 use super::{BG, FILL, MUTED, TEXT, draw_text, fill_rect};
 
-const WIDTH: u32 = 500;
-const HEIGHT: u32 = 210;
+const WIDTH: u32 = 680;
+const HEIGHT: u32 = 360;
 const BUTTON_HEIGHT: i32 = 38;
 
 pub(crate) fn confirm_update(app_name: &str, version: &str) -> Result<bool, String> {
@@ -113,6 +113,18 @@ impl ApplicationHandler for ConfirmApp {
     ) {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed => {
+                match event.logical_key {
+                    winit::keyboard::Key::Named(winit::keyboard::NamedKey::Escape) => {
+                        event_loop.exit()
+                    }
+                    winit::keyboard::Key::Named(winit::keyboard::NamedKey::Enter) => {
+                        self.decision.set(!self.notice);
+                        event_loop.exit();
+                    }
+                    _ => {}
+                }
+            }
             WindowEvent::PointerMoved { position, .. } => self.cursor = position,
             WindowEvent::PointerButton {
                 state: ElementState::Released,
@@ -125,14 +137,14 @@ impl ApplicationHandler for ConfirmApp {
                     return;
                 };
                 let size = window.surface_size();
-                let install = button_rect(size.width, true);
+                let install = button_rect(size.width, size.height, true);
                 if self.notice {
                     if contains(install, self.cursor) {
                         event_loop.exit();
                     }
                     return;
                 }
-                let later = button_rect(size.width, false);
+                let later = button_rect(size.width, size.height, false);
                 if contains(install, self.cursor) {
                     self.decision.set(true);
                     event_loop.exit();
@@ -174,28 +186,22 @@ impl ConfirmApp {
             TEXT,
             2.0,
         );
-        for (index, line) in wrap_message(&self.message, 48)
-            .into_iter()
-            .take(3)
-            .enumerate()
-        {
-            draw_text(
-                &mut buffer,
-                (width, height),
-                (24, 72 + index as i32 * 16),
-                &line,
-                MUTED,
-                1.0,
-            );
-        }
-        let install = button_rect(width, true);
+        draw_text(
+            &mut buffer,
+            (width, height.saturating_sub(80)),
+            (24, 80),
+            &self.message,
+            MUTED,
+            1.0,
+        );
+        let install = button_rect(width, height, true);
         if !self.notice {
-            let later = button_rect(width, false);
+            let later = button_rect(width, height, false);
             fill_rect(&mut buffer, (width, height), later, 0xFF_2A_2A_2E);
             draw_text(
                 &mut buffer,
                 (width, height),
-                (later.0 + 24, later.1 + 15),
+                (later.0 + 24, later.1 + 10),
                 "Later",
                 TEXT,
                 1.0,
@@ -205,7 +211,7 @@ impl ConfirmApp {
         draw_text(
             &mut buffer,
             (width, height),
-            (install.0 + 20, install.1 + 15),
+            (install.0 + 20, install.1 + 10),
             if self.notice { "Close" } else { "Install" },
             0xFF_16_16_18,
             1.0,
@@ -214,28 +220,9 @@ impl ConfirmApp {
     }
 }
 
-fn wrap_message(message: &str, width: usize) -> Vec<String> {
-    let mut lines = Vec::new();
-    let mut line = String::new();
-    for word in message.split_whitespace() {
-        let needed = usize::from(!line.is_empty()) + word.len();
-        if !line.is_empty() && line.len() + needed > width {
-            lines.push(std::mem::take(&mut line));
-        }
-        if !line.is_empty() {
-            line.push(' ');
-        }
-        line.push_str(word);
-    }
-    if !line.is_empty() {
-        lines.push(line);
-    }
-    lines
-}
-
-fn button_rect(width: u32, primary: bool) -> (i32, i32, i32, i32) {
+fn button_rect(width: u32, height: u32, primary: bool) -> (i32, i32, i32, i32) {
     let x = width as i32 - if primary { 132 } else { 248 };
-    (x, HEIGHT as i32 - 62, 100, BUTTON_HEIGHT)
+    (x, height as i32 - 62, 100, BUTTON_HEIGHT)
 }
 
 fn contains(rect: (i32, i32, i32, i32), point: PhysicalPosition<f64>) -> bool {

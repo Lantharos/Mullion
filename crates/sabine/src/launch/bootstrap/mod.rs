@@ -13,9 +13,32 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+pub(crate) const NOTICE_ARG: &str = "--sabine-notice";
+
+pub(crate) fn show_failure(title: &str, error: &dyn std::fmt::Display) {
+    sabine_runtime::report_error("startup", error);
+    let message = format!(
+        "{error}\n\nDetails: {}",
+        sabine_runtime::diagnostic_path("startup").display()
+    );
+    if let Ok(executable) = std::env::current_exe() {
+        let _ = background_command(executable)
+            .args([NOTICE_ARG, title, &message])
+            .status();
+    }
+}
+
 pub(crate) const BOOTSTRAP_ARG: &str = "--sabine-bootstrap";
 
 pub(crate) fn run_from_args(args: &[String]) -> bool {
+    if let Some(index) = args.iter().position(|arg| arg == NOTICE_ARG) {
+        if let (Some(title), Some(message)) = (args.get(index + 1), args.get(index + 2))
+            && let Err(error) = ui::show_notice(title, message)
+        {
+            sabine_runtime::report_error("startup", error);
+        }
+        return true;
+    }
     let Some(index) = args.iter().position(|arg| arg == BOOTSTRAP_ARG) else {
         return false;
     };
@@ -30,11 +53,13 @@ pub(crate) fn run_from_args(args: &[String]) -> bool {
             std::process::exit(1);
         }
     };
-    let app_name = register.as_ref().map(|app| app.name.clone());
     let result = ui::run_progress_window("Preparing Sabine", move |state, proxy| {
         let result = prepare_machine_with_progress(config, register, |progress| {
             ui::set_progress(&state, &proxy, progress.message, progress.fraction);
         });
+        if let Err(error) = &result {
+            sabine_runtime::report_error("setup", error);
+        }
         ui::finish(
             &state,
             &proxy,
@@ -42,12 +67,7 @@ pub(crate) fn run_from_args(args: &[String]) -> bool {
         );
     });
     if let Err(error) = result {
-        let title = app_name
-            .as_deref()
-            .map(|name| format!("Can't open {name}"))
-            .unwrap_or_else(|| "Sabine needs attention".to_string());
-        let _ = ui::show_notice(&title, &error);
-        eprintln!("Sabine setup failed: {error}");
+        sabine_runtime::report_error("setup", error);
         std::process::exit(1);
     }
     true
@@ -62,7 +82,6 @@ pub(crate) fn prepare(config: &SabineWindowConfig) -> SabineResult<()> {
                 Ok(report) => report,
                 Err(error @ sabine_service::ServiceError::IncompatibleApp { .. }) => {
                     let message = error.to_string();
-                    let _ = ui::show_notice(&format!("Can't open {}", config.title), &message);
                     return Err(SabineError::CreationFailed { message });
                 }
                 Err(error) => {

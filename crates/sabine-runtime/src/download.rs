@@ -149,21 +149,22 @@ pub(crate) fn extract_archive(archive: &Path, destination: &Path) -> Result<(), 
     // instead of `tar -C <path>`: GNU tar (common via Git for Windows) treats a
     // drive letter in -C as a remote hostname and produces a corrupt/partial tree.
     let archive = std::fs::canonicalize(archive).unwrap_or_else(|_| archive.to_path_buf());
-    let status = background_command("tar")
+    let output = background_command("tar")
         .current_dir(destination)
         .arg("-xjf")
         .arg(&archive)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
+        .stderr(std::process::Stdio::piped())
+        .output()
         .map_err(RuntimeError::Io)?;
-    if status.success() {
+    if output.status.success() {
         Ok(())
     } else {
-        Err(RuntimeError::InstallationFailed(
-            "failed to extract CEF archive with tar".to_string(),
-        ))
+        Err(RuntimeError::InstallationFailed(format!(
+            "failed to extract CEF archive: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )))
     }
 }
 

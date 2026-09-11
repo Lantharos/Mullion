@@ -2,6 +2,7 @@
 
 fn main() {
     if let Err(error) = sabine_service::run_daemon() {
-        eprintln!("Sabine service failed: {error}");
+        sabine_runtime::report_error("daemon", error);
+        std::process::exit(1);
     }
 }

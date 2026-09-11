@@ -3,7 +3,7 @@ use std::num::NonZeroU32;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use winit::{
     application::ApplicationHandler,
     dpi::LogicalSize,
@@ -53,9 +53,6 @@ pub(super) fn run_progress_window(
         context: None,
         surface: None,
         title: title.to_string(),
-        last_paint: Instant::now()
-            .checked_sub(Duration::from_secs(1))
-            .unwrap_or_else(Instant::now),
     };
     event_loop.run_app(app).map_err(|error| error.to_string())?;
 
@@ -113,7 +110,6 @@ struct ProgressApp {
     context: Option<Context<Arc<dyn Window>>>,
     surface: Option<Surface<Arc<dyn Window>, Arc<dyn Window>>>,
     title: String,
-    last_paint: Instant,
 }
 
 impl ApplicationHandler for ProgressApp {
@@ -170,6 +166,18 @@ impl ApplicationHandler for ProgressApp {
     ) {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::KeyboardInput { event, .. }
+                if event.state == winit::event::ElementState::Pressed
+                    && matches!(
+                        event.logical_key,
+                        winit::keyboard::Key::Named(
+                            winit::keyboard::NamedKey::Escape | winit::keyboard::NamedKey::Enter
+                        )
+                    )
+                    && self.state.lock().is_ok_and(|state| state.done.is_some()) =>
+            {
+                event_loop.exit()
+            }
             WindowEvent::RedrawRequested => self.paint(false),
             WindowEvent::SurfaceResized(_) => self.paint(true),
             _ => {}
@@ -177,22 +185,29 @@ impl ApplicationHandler for ProgressApp {
     }
 
     fn proxy_wake_up(&mut self, event_loop: &dyn ActiveEventLoop) {
-        if self
-            .state
-            .lock()
-            .ok()
-            .and_then(|guard| guard.done.as_ref().map(|_| ()))
-            .is_some()
-        {
-            event_loop.exit();
-            return;
-        }
-        if self.last_paint.elapsed() < MIN_PROGRESS_INTERVAL {
-            event_loop.set_control_flow(ControlFlow::wait_duration(MIN_PROGRESS_INTERVAL));
-            if let Some(window) = &self.window {
-                window.request_redraw();
+        let outcome = self.state.lock().ok().and_then(|state| state.done.clone());
+        match outcome {
+            Some(Ok(())) => {
+                event_loop.exit();
+                return;
             }
-            return;
+            Some(Err(error)) => {
+                if let Some(window) = &self.window {
+                    window.set_title("Sabine setup failed");
+                    let _ = window.request_surface_size(LogicalSize::new(640.0, 360.0).into());
+                }
+                if let Ok(mut state) = self.state.lock() {
+                    state.message = format!(
+                        "{error}\n\nClose this window to finish. Details: {}",
+                        sabine_runtime::diagnostic_path("setup").display()
+                    );
+                    state.fraction = None;
+                    state.dirty = true;
+                }
+                self.paint(true);
+                return;
+            }
+            None => {}
         }
         self.paint(false);
     }
@@ -217,7 +232,6 @@ impl ProgressApp {
         if !force && !dirty {
             return;
         }
-        self.last_paint = Instant::now();
 
         let status = if message.is_empty() {
             self.title.as_str()
@@ -245,14 +259,20 @@ impl ProgressApp {
         let scale = (width as f32 / WIDTH as f32).max(1.0);
         let pad = (20.0 * scale) as i32;
         let bar_y = (height as i32 * 2) / 3;
+        let failed = self
+            .state
+            .lock()
+            .is_ok_and(|state| matches!(state.done, Some(Err(_))));
         let bar_h = (10.0 * scale).round().max(6.0) as i32;
         let bar_w = width as i32 - pad * 2;
-        fill_rect(
-            &mut buffer,
-            (width, height),
-            (pad, bar_y, bar_w, bar_h),
-            TRACK,
-        );
+        if !failed {
+            fill_rect(
+                &mut buffer,
+                (width, height),
+                (pad, bar_y, bar_w, bar_h),
+                TRACK,
+            );
+        }
         let filled = (fraction.unwrap_or(0.0).clamp(0.0, 1.0) * bar_w as f32).round() as i32;
         if filled > 0 {
             fill_rect(
@@ -311,165 +331,28 @@ fn draw_text(
     color: u32,
     scale: f32,
 ) {
-    let (width, height) = surface;
-    let (x, y) = position;
-    let pixel = (scale.round() as i32).max(1);
-    let mut cursor = x;
-    for ch in text.chars().take(48) {
-        if let Some(glyph) = glyph(ch) {
-            for row in 0..7_i32 {
-                for col in 0..5_i32 {
-                    if glyph[row as usize] & (1 << (4 - col)) != 0 {
-                        fill_rect(
-                            buffer,
-                            (width, height),
-                            (cursor + col * pixel, y + row * pixel, pixel, pixel),
-                            color,
-                        );
-                    }
-                }
-            }
-            cursor += 6 * pixel;
-        } else if ch == ' ' {
-            cursor += 4 * pixel;
-        }
+    thread_local! {
+        static TEXT_RENDERER: std::cell::RefCell<crate::render::raster_text::RasterText> =
+            std::cell::RefCell::new(crate::render::raster_text::RasterText::new());
     }
-}
-
-fn glyph(ch: char) -> Option<[u8; 7]> {
-    Some(match ch.to_ascii_uppercase() {
-        'A' => [
-            0b01110, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001,
-        ],
-        'B' => [
-            0b11110, 0b10001, 0b10001, 0b11110, 0b10001, 0b10001, 0b11110,
-        ],
-        'C' => [
-            0b01111, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b01111,
-        ],
-        'D' => [
-            0b11110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b11110,
-        ],
-        'E' => [
-            0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b11111,
-        ],
-        'F' => [
-            0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b10000,
-        ],
-        'G' => [
-            0b01111, 0b10000, 0b10000, 0b10111, 0b10001, 0b10001, 0b01110,
-        ],
-        'H' => [
-            0b10001, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001,
-        ],
-        'I' => [
-            0b01110, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110,
-        ],
-        'J' => [
-            0b00111, 0b00010, 0b00010, 0b00010, 0b00010, 0b10010, 0b01100,
-        ],
-        'K' => [
-            0b10001, 0b10010, 0b10100, 0b11000, 0b10100, 0b10010, 0b10001,
-        ],
-        'L' => [
-            0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b11111,
-        ],
-        'M' => [
-            0b10001, 0b11011, 0b10101, 0b10001, 0b10001, 0b10001, 0b10001,
-        ],
-        'N' => [
-            0b10001, 0b11001, 0b10101, 0b10011, 0b10001, 0b10001, 0b10001,
-        ],
-        'O' => [
-            0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110,
-        ],
-        'P' => [
-            0b11110, 0b10001, 0b10001, 0b11110, 0b10000, 0b10000, 0b10000,
-        ],
-        'Q' => [
-            0b01110, 0b10001, 0b10001, 0b10001, 0b10101, 0b10010, 0b01101,
-        ],
-        'R' => [
-            0b11110, 0b10001, 0b10001, 0b11110, 0b10100, 0b10010, 0b10001,
-        ],
-        'S' => [
-            0b01111, 0b10000, 0b10000, 0b01110, 0b00001, 0b00001, 0b11110,
-        ],
-        'T' => [
-            0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100,
-        ],
-        'U' => [
-            0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110,
-        ],
-        'V' => [
-            0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01010, 0b00100,
-        ],
-        'W' => [
-            0b10001, 0b10001, 0b10001, 0b10101, 0b10101, 0b10101, 0b01010,
-        ],
-        'X' => [
-            0b10001, 0b10001, 0b01010, 0b00100, 0b01010, 0b10001, 0b10001,
-        ],
-        'Y' => [
-            0b10001, 0b10001, 0b01010, 0b00100, 0b00100, 0b00100, 0b00100,
-        ],
-        'Z' => [
-            0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b10000, 0b11111,
-        ],
-        '0' => [
-            0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110,
-        ],
-        '1' => [
-            0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110,
-        ],
-        '2' => [
-            0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111,
-        ],
-        '3' => [
-            0b11110, 0b00001, 0b00001, 0b01110, 0b00001, 0b00001, 0b11110,
-        ],
-        '4' => [
-            0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010,
-        ],
-        '5' => [
-            0b11111, 0b10000, 0b11110, 0b00001, 0b00001, 0b10001, 0b01110,
-        ],
-        '6' => [
-            0b00110, 0b01000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110,
-        ],
-        '7' => [
-            0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000,
-        ],
-        '8' => [
-            0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110,
-        ],
-        '9' => [
-            0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b01100,
-        ],
-        '%' => [
-            0b11001, 0b11010, 0b00010, 0b00100, 0b01000, 0b01011, 0b10011,
-        ],
-        '.' => [
-            0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00100, 0b00100,
-        ],
-        '-' => [
-            0b00000, 0b00000, 0b00000, 0b11111, 0b00000, 0b00000, 0b00000,
-        ],
-        ':' => [
-            0b00000, 0b00100, 0b00100, 0b00000, 0b00100, 0b00100, 0b00000,
-        ],
-        '/' => [
-            0b00001, 0b00010, 0b00010, 0b00100, 0b01000, 0b01000, 0b10000,
-        ],
-        '(' => [
-            0b00100, 0b01000, 0b10000, 0b10000, 0b10000, 0b01000, 0b00100,
-        ],
-        ')' => [
-            0b00100, 0b00010, 0b00001, 0b00001, 0b00001, 0b00010, 0b00100,
-        ],
-        '\'' => [
-            0b00100, 0b00100, 0b01000, 0b00000, 0b00000, 0b00000, 0b00000,
-        ],
-        _ => return None,
-    })
+    TEXT_RENDERER.with(|renderer| {
+        renderer.borrow_mut().draw_wrapped(
+            bytemuck::cast_slice_mut(buffer),
+            surface,
+            (
+                position.0,
+                position.1,
+                surface.0.saturating_sub(position.0.max(0) as u32 + 20),
+                surface.1.saturating_sub(position.1.max(0) as u32),
+            ),
+            text,
+            13.0 * scale,
+            [
+                ((color >> 16) & 255) as u8,
+                ((color >> 8) & 255) as u8,
+                (color & 255) as u8,
+                255,
+            ],
+        );
+    });
 }

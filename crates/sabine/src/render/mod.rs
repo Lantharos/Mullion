@@ -1,6 +1,5 @@
 mod display_list;
 mod gpu;
-#[cfg(target_os = "linux")]
 pub(crate) mod raster_text;
 mod rect_pipeline;
 

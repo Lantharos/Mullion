@@ -541,6 +541,7 @@ impl OsrLayerHost {
                 return;
             }
         };
+        sabine_runtime::capture_diagnostics(&mut child, "cef");
         let Some(socket_handle) = pending_socket.start(self.sender.clone(), authentication_token)
         else {
             let _ = child.kill();

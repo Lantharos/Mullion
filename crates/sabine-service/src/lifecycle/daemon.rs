@@ -129,12 +129,12 @@ pub fn run_daemon() -> ServiceResult<()> {
                 return Ok(());
             }
             Ok(None) => {}
-            Err(error) => eprintln!("Sabine self-update failed: {error}"),
+            Err(error) => sabine_runtime::report_error("maintenance", error),
         }
         match service.maintain() {
             Ok(report) => {
                 for error in &report.update_failures {
-                    eprintln!("Sabine maintenance failed: {error}");
+                    sabine_runtime::report_error("maintenance", error);
                 }
                 if let Some(required) = report.required_system_update
                     && let Some(update) = crate::install::stage_required_system_update(required)?
@@ -143,7 +143,7 @@ pub fn run_daemon() -> ServiceResult<()> {
                     return Ok(());
                 }
             }
-            Err(error) => eprintln!("Sabine maintenance failed: {error}"),
+            Err(error) => sabine_runtime::report_error("maintenance", error),
         }
         std::thread::sleep(crate::default_maintenance_interval());
     }

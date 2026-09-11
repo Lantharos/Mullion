@@ -1,5 +1,6 @@
 mod assets;
 mod detect;
+mod diagnostics;
 mod download;
 mod error;
 mod host;
@@ -32,6 +33,7 @@ pub use types::{
 };
 
 pub use detect::detect_runtime;
+pub use diagnostics::{capture_diagnostics, diagnostic_path, record_diagnostic, report_error};
 
 #[cfg(test)]
 mod tests {

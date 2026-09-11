@@ -62,7 +62,10 @@ impl SabineWindow {
         let window = match Self::new().with_framework_config().and_then(build) {
             Ok(window) => window,
             Err(error) => {
-                eprintln!("failed to configure Sabine window: {error}");
+                crate::launch::bootstrap::show_failure(
+                    "Could not configure the application",
+                    &error,
+                );
                 std::process::exit(1);
             }
         };
@@ -72,14 +75,17 @@ impl SabineWindow {
                 match process.wait() {
                     Ok(status) => std::process::exit(status.code().unwrap_or(1)),
                     Err(error) => {
-                        eprintln!("Sabine process wait failed: {error}");
+                        crate::launch::bootstrap::show_failure(
+                            "The application stopped unexpectedly",
+                            &error,
+                        );
                         std::process::exit(1);
                     }
                 }
             }
             Err(crate::SabineError::InstanceAlreadyRunning) => std::process::exit(0),
             Err(error) => {
-                eprintln!("failed to launch Sabine window: {error}");
+                crate::launch::bootstrap::show_failure("Could not open the application", &error);
                 std::process::exit(1);
             }
         }

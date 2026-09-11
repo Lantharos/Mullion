@@ -394,3 +394,18 @@ binaries do not link with MinGW/MSYS. Sabine forces a Visual Studio CMake genera
 CEF archives are extracted with `tar` using the destination as the process working directory (not
 `tar -C C:\...`). Git for Windows’ GNU tar treats a drive letter in `-C` as a remote host and can
 leave a partial tree that looks installed but cannot build the host.
+
+### Startup diagnostics
+
+Startup, setup, OSR host, Chromium host, and maintenance errors are saved as JSON lines
+in the shared Sabine data directory under `logs/`. Each component keeps up to 4 MiB
+before discarding older entries. On Linux this directory follows `XDG_DATA_HOME`,
+falling back to `~/.local/share/sabine/logs`. Child stderr is also forwarded to the
+launching terminal when one is attached. Diagnostic files may contain application
+URLs and paths; review their contents before sharing them.
+
+Failed setup keeps its progress window open, displays the error and log location,
+and closes with Enter, Escape, or the window close button. Startup failures before
+the app window opens display a separate notice. The windows render Unicode text
+using installed fonts and wrap messages; the log retains text beyond the visible
+window area.
