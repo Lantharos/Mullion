@@ -33,6 +33,17 @@ pub(crate) enum FrameBytes {
 }
 
 impl FrameBytes {
+    pub(crate) fn allocation(&self) -> (usize, usize) {
+        match self {
+            Self::Owned(bytes) => (bytes.as_ptr() as usize, bytes.capacity()),
+            Self::Inline { source, .. } => (source.as_ptr() as usize, source.len()),
+            Self::Shared { source, .. } => {
+                let bytes = source.as_slice();
+                (bytes.as_ptr() as usize, bytes.len())
+            }
+        }
+    }
+
     pub(crate) fn as_slice(&self) -> &[u8] {
         match self {
             Self::Owned(bytes) => bytes,
@@ -130,6 +141,13 @@ pub(crate) struct OsrAccelFrame {
     pub native_handle: u64,
     /// Producer slot released only after the compositor finishes sampling it.
     pub slot_token: u64,
+}
+
+#[cfg(windows)]
+impl Drop for OsrAccelFrame {
+    fn drop(&mut self) {
+        crate::osr::accel::close_imported_handle(self.native_handle);
+    }
 }
 
 #[derive(Clone, Debug)]

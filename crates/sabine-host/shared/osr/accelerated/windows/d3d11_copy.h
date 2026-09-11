@@ -24,9 +24,9 @@ bool CopyAcceleratedD3d11Frame(const std::string& slot_key,
                                uint32_t cef_format,
                                AccelD3d11CopiedFrame* out);
 
-/// Allow a copied texture slot to be reused after the compositor confirms its
-/// D3D12 copy has completed.
+/// Allow a copied texture slot to be reused after the compositor stops sampling it.
 void ReleaseAcceleratedD3d11Frame(uint64_t slot_token);
+void RetireAcceleratedD3d11Browser(int browser_id);
 
 }  // namespace sabine_osr
 

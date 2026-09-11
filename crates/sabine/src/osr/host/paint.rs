@@ -208,6 +208,9 @@ impl OsrNativeHost {
 
     pub(super) fn clear_overlay(&mut self, overlay_id: &str) {
         self.overlays.remove(overlay_id);
+        if let Some(renderer) = &mut self.renderer {
+            renderer.remove_image(&overlay_texture_id(overlay_id));
+        }
     }
 
     pub(super) fn update_paint_batch(&mut self, batch: OsrPaintBatch) -> bool {

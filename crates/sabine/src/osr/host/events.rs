@@ -129,6 +129,8 @@ impl OsrNativeHost {
                         resize_frame_ready |=
                             was_resize_pending && self.pending_resize_paint.is_none();
                         needs_initial_present |= !was_presented && self.main_surface_ready();
+                    } else {
+                        self.send_control(&format!("accel_release\t{}\n", frame.slot_token));
                     }
                 }
                 super::types::OsrHostEvent::Message(_, OsrMessage::PopupHidden) => {

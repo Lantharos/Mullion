@@ -40,16 +40,12 @@ impl OsrNativeHost {
             let frame_size = self.accel_frame_size(frame);
             let target = self.content_surface_size();
             if !self.should_accept_main_frame_size(frame_size, target) {
-                #[cfg(windows)]
-                crate::osr::accel::close_imported_handle(frame.native_handle);
                 release_slot();
                 self.retry_resize_paint();
                 return false;
             }
         }
         let Some(renderer) = self.renderer.as_mut() else {
-            #[cfg(windows)]
-            crate::osr::accel::close_imported_handle(frame.native_handle);
             release_slot();
             return false;
         };
@@ -57,8 +53,6 @@ impl OsrNativeHost {
             OsrSurface::Main => MAIN_TEXTURE_ID.to_string(),
             OsrSurface::Popup | OsrSurface::Guest(_) => {
                 let Some(overlay_id) = overlay_id_for_surface(&frame.surface) else {
-                    #[cfg(windows)]
-                    crate::osr::accel::close_imported_handle(frame.native_handle);
                     release_slot();
                     return false;
                 };
@@ -68,7 +62,7 @@ impl OsrNativeHost {
 
         #[cfg(windows)]
         let imported = crate::osr::accel::try_import_d3d12(renderer, frame);
-        let installed = match imported {
+        match imported {
             Ok(texture) => crate::osr::accel::install_imported_texture(
                 renderer,
                 &texture_id,
@@ -82,10 +76,7 @@ impl OsrNativeHost {
                 release_slot();
                 false
             }
-        };
-        #[cfg(windows)]
-        crate::osr::accel::close_imported_handle(frame.native_handle);
-        installed
+        }
     }
 
     #[cfg(windows)]

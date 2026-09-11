@@ -134,11 +134,14 @@ transport branches.
   CEF host first opens it on D3D11 and copies it into one of four Sabine-owned D3D12 shared textures
   before returning. Each destination is opened on the producer's D3D11 device for the copy and on
   wgpu's D3D12 device for composition. The host waits for its GPU copy before publishing the frame;
-  the compositor sends a release acknowledgement only after its own copy completes. The producer
+  the compositor samples the imported texture directly and sends a release acknowledgement only
+  after submitted GPU work stops using it. The producer
   never reuses a slot before that acknowledgement. Physical texture dimensions remain separate
   from the visible source rectangle and logical window dimensions at non-integer display scales.
   Mailbox saturation drops an intermediate GPU frame and requests the newest paint; it never falls
   back to a synchronous CPU readback.
+  Slots are isolated by browser and released when that browser closes. The compositor evicts
+  retired guest and popup textures and clears page textures during hibernation.
 - **Linux** uses CEF software `OnPaint` on Wayland. The previous DMA-BUF/X11/Vulkan branch was not a
   valid ownership implementation and has been removed.
 - **macOS** currently uses software `OnPaint`. An IOSurface path must copy or retain CEF's pooled
@@ -184,8 +187,10 @@ authenticates with a first-line token read from a one-use `0600` token file. The
 only a fallback for launches that do not need Chromium process-singleton handoff.
 
 Paint messages use the versioned `SAB1` wire signature. Surface dimensions, inline payloads, and
-shared mappings are bounded before allocation or mapping, and the native host uses a bounded event
-queue so a stalled compositor applies backpressure instead of accumulating frames indefinitely.
+shared mappings are bounded before allocation or mapping. The native host's paint queue limits
+both message count and retained payload memory to 256 MiB. Merging preserves dirty rectangles while
+limiting each merged batch to 256 rectangles and 64 MiB of retained buffers; larger batches remain
+ordered and apply backpressure without dropping damage.
 
 | Platform | Transport | Paint path |
 | --- | --- | --- |

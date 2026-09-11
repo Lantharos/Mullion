@@ -47,6 +47,20 @@ pub(super) fn parse_accel_frame(
     let visible_height = read_u32(&rest[16..20]);
     let native_handle = read_u64(&rest[20..28]);
     let slot_token = read_u64(&rest[28..36]);
+    let frame = OsrAccelFrame {
+        surface,
+        coded_width,
+        coded_height,
+        visible_x: visible_x as u32,
+        visible_y: visible_y as u32,
+        visible_width,
+        visible_height,
+        x,
+        y,
+        format,
+        native_handle,
+        slot_token,
+    };
     if visible_x < 0
         || visible_y < 0
         || visible_width == 0
@@ -60,18 +74,5 @@ pub(super) fn parse_accel_frame(
         ));
     }
 
-    Ok(OsrAccelFrame {
-        surface,
-        coded_width,
-        coded_height,
-        visible_x: visible_x as u32,
-        visible_y: visible_y as u32,
-        visible_width,
-        visible_height,
-        x,
-        y,
-        format,
-        native_handle,
-        slot_token,
-    })
+    Ok(frame)
 }

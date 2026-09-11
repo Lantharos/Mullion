@@ -146,6 +146,9 @@ impl OsrNativeHost {
             self.main_frame = None;
             self.overlays.clear();
             self.main_buffer.release();
+            if let Some(renderer) = &mut self.renderer {
+                renderer.clear_images();
+            }
             return;
         }
         if self.config.visible {
@@ -185,6 +188,9 @@ impl OsrNativeHost {
         self.main_frame = None;
         self.overlays.clear();
         self.main_buffer.release();
+        if let Some(renderer) = &mut self.renderer {
+            renderer.clear_images();
+        }
         self.hibernate_commit_deadline = None;
         self.lifecycle_state = LifecycleState::Hibernated;
         self.loading = None;

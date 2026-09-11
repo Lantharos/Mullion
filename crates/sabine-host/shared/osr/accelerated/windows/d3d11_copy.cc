@@ -11,8 +11,6 @@
 #include <map>
 #include <utility>
 
-#include "include/internal/cef_types.h"
-
 namespace sabine_osr {
 namespace {
 
@@ -44,6 +42,11 @@ struct D3d11Context {
 };
 
 struct OwnedSharedSlot {
+  OwnedSharedSlot() = default;
+  OwnedSharedSlot(const OwnedSharedSlot&) = delete;
+  OwnedSharedSlot& operator=(const OwnedSharedSlot&) = delete;
+  ~OwnedSharedSlot() { Reset(); }
+
   ID3D11Texture2D* texture = nullptr;
   ID3D12Resource* resource12 = nullptr;
   HANDLE shared_handle = nullptr;
@@ -388,6 +391,18 @@ bool CopyAcceleratedD3d11Frame(const std::string& slot_key,
   }
   source->Release();
   return copied;
+}
+
+void RetireAcceleratedD3d11Browser(int browser_id) {
+  const std::string prefix = std::to_string(browser_id) + "/";
+  for (auto it = g_slots.begin(); it != g_slots.end();) {
+    if (it->first.rfind(prefix, 0) == 0) it = g_slots.erase(it);
+    else ++it;
+  }
+  for (auto it = g_next_slot.begin(); it != g_next_slot.end();) {
+    if (it->first.rfind(prefix, 0) == 0) it = g_next_slot.erase(it);
+    else ++it;
+  }
 }
 
 void ReleaseAcceleratedD3d11Frame(uint64_t slot_token) {

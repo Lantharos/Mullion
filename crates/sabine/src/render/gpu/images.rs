@@ -12,6 +12,20 @@ pub(super) struct ImageDraw {
 }
 
 impl GpuRenderer {
+    pub(crate) fn remove_image(&mut self, id: &str) {
+        #[cfg(windows)]
+        self.retire_external_texture(id);
+        self.texture_cache.remove(id);
+    }
+
+    pub(crate) fn clear_images(&mut self) {
+        #[cfg(windows)]
+        for (_, completed) in self.external_texture_releases.drain() {
+            self.queue.on_submitted_work_done(completed);
+        }
+        self.texture_cache.clear();
+    }
+
     pub fn set_dynamic_bgra_image(
         &mut self,
         id: impl Into<String>,
