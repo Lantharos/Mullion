@@ -259,7 +259,7 @@ headers and CMake files are required only when compiling the host.
 
 Interrupted CEF downloads retain their bytes and resume with validated HTTP byte ranges. Servers
 that do not support ranges restart the transfer. Archive sizes are checked against the index before
-SHA-1 verification; transient network/server failures retry up to four times, with a 30-minute
+SHA-1 verification; transient network/server failures allow up to four attempts, with a 30-minute
 transfer deadline. Closing the setup window cancels its process and preserves the partial download.
 Setup failures remain visible until dismissed, then exit without opening a second error window.
 
@@ -268,6 +268,10 @@ and special device entries. Extracted assets are validated before replacing an i
 and a runtime leased by a running app cannot be repaired in place. Offline bundles contain only
 release binaries, resources, version metadata, and licensing files, preserving framework symlinks.
 Build offline bundles on their target OS so the embedded runtime and service match the application.
+Shared-system and managed-app ZIP and tar.gz extraction also runs in process, with confined paths,
+validated links, and limits on entry count and expanded size. Archive type comes from its contents,
+so download URLs may contain query parameters. ZIP extraction preserves executable permissions
+and internal framework symlinks.
 
 `sabine-service` owns the machine/user-level catalog. Its registry writes use a temporary file,
 `sync_all`, and atomic rename. Re-registering an app preserves its original registration timestamp.

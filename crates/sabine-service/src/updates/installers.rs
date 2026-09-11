@@ -8,7 +8,6 @@ use std::{
 
 use crate::registry::replace_file;
 use crate::types::{AppArtifact, AppArtifactKind, PendingAppUpdate, ServiceError, ServiceResult};
-use sabine_runtime::background_command;
 
 pub(super) fn install_archive(
     root: &Path,
@@ -27,7 +26,7 @@ pub(super) fn install_archive(
         std::fs::remove_dir_all(&staging)?;
     }
     std::fs::create_dir_all(&staging)?;
-    extract_archive(&archive, &staging, &artifact.url)?;
+    crate::archive::extract(&archive, &staging)?;
     if let Some(parent) = release_dir.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -74,48 +73,6 @@ pub(super) fn verify_sha256(path: &Path, expected: &str) -> ServiceResult<()> {
             "artifact SHA-256 mismatch".to_string(),
         ))
     }
-}
-
-pub(super) fn extract_archive(archive: &Path, destination: &Path, url: &str) -> ServiceResult<()> {
-    let zip = url.to_ascii_lowercase().ends_with(".zip");
-    let (program, list_args, extract_args): (&str, &[&str], &[&str]) = if zip {
-        ("unzip", &["-Z1"], &["-q"])
-    } else {
-        ("tar", &["-tf"], &["-xf"])
-    };
-    let listing = background_command(program)
-        .args(list_args)
-        .arg(archive)
-        .output()
-        .map_err(|error| ServiceError::Update(format!("failed to inspect archive: {error}")))?;
-    if !listing.status.success() {
-        return Err(ServiceError::Update(
-            "could not inspect update archive".to_string(),
-        ));
-    }
-    for entry in String::from_utf8_lossy(&listing.stdout).lines() {
-        if !safe_relative_path(Path::new(entry)) {
-            return Err(ServiceError::Update(
-                "update archive contains an unsafe path".to_string(),
-            ));
-        }
-    }
-    let mut command = background_command(program);
-    command.args(extract_args).arg(archive);
-    if zip {
-        command.arg("-d").arg(destination);
-    } else {
-        command.arg("-C").arg(destination);
-    }
-    let status = command
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map_err(|error| ServiceError::Update(format!("failed to extract archive: {error}")))?;
-    status
-        .success()
-        .then_some(())
-        .ok_or_else(|| ServiceError::Update("update archive extraction failed".to_string()))
 }
 
 pub(super) fn run_package_installer(

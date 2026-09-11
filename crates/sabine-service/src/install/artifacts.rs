@@ -3,14 +3,12 @@ use std::{
     fs,
     io::{Read, Write},
     path::{Path, PathBuf},
-    process::Stdio,
 };
 
 use crate::{
     PrepareProgress, PrepareStage, ServiceError, ServiceResult, SystemReleaseManifest,
     registry::replace_file,
 };
-use sabine_runtime::background_command;
 
 use super::SERVICE_REPO;
 
@@ -205,46 +203,7 @@ pub(super) fn verify_sha256(path: &Path, expected: &str) -> ServiceResult<()> {
 }
 
 pub(super) fn extract_system_archive(archive: &Path, destination: &Path) -> ServiceResult<()> {
-    let listing = background_command("tar")
-        .arg("-tf")
-        .arg(archive)
-        .output()
-        .map_err(|error| {
-            ServiceError::Update(format!("failed to inspect system bundle: {error}"))
-        })?;
-    if !listing.status.success() {
-        return Err(ServiceError::Update(
-            "could not inspect Sabine system bundle".to_string(),
-        ));
-    }
-    for entry in String::from_utf8_lossy(&listing.stdout).lines() {
-        let path = Path::new(entry);
-        if path.is_absolute()
-            || path
-                .components()
-                .any(|component| matches!(component, std::path::Component::ParentDir))
-        {
-            return Err(ServiceError::Update(
-                "Sabine system bundle contains an unsafe path".to_string(),
-            ));
-        }
-    }
-    let status = background_command("tar")
-        .arg("-xf")
-        .arg(archive)
-        .arg("-C")
-        .arg(destination)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map_err(|error| {
-            ServiceError::Update(format!("failed to extract system bundle: {error}"))
-        })?;
-    status
-        .success()
-        .then_some(())
-        .ok_or_else(|| ServiceError::Update("could not extract Sabine system bundle".to_string()))
+    crate::archive::extract(archive, destination)
 }
 
 #[cfg(test)]

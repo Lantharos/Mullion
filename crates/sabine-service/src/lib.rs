@@ -1,3 +1,4 @@
+mod archive;
 mod install;
 mod lifecycle;
 mod registry;
