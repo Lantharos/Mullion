@@ -9,7 +9,14 @@ pub use process::{SabineProcess, SabineProcessHandle, WindowId};
 pub(crate) use process_tree::{
     ManagedChild, prepare_child_command, prepare_detachable_child_command,
 };
+#[cfg(debug_assertions)]
 pub(crate) use sabine_host::ensure_host;
+
+#[cfg(not(debug_assertions))]
+pub(crate) fn ensure_host(runtime_dir: &std::path::Path) -> Result<std::path::PathBuf, String> {
+    sabine_host::available_host(runtime_dir).ok_or_else(||
+        "The shared Sabine host is missing. Repair or update the Sabine installation before launching this app.".to_string())
+}
 
 pub(crate) fn browser_profile_dir(profile_key: &str) -> PathBuf {
     user_cache_home()

@@ -14,7 +14,9 @@ use std::{
 use serde::Deserialize;
 
 mod build_lock;
+mod protocol;
 mod sources;
+pub use protocol::{HOST_PROTOCOL_VERSION, validate_host_protocol};
 mod toolchain;
 
 use build_lock::HostBuildLock;
@@ -45,6 +47,7 @@ pub fn host_release_binary(runtime_dir: &Path) -> PathBuf {
 pub fn ensure_host(runtime_dir: &Path) -> Result<PathBuf, String> {
     sabine_runtime::prepare_runtime_assets(runtime_dir).map_err(|error| error.to_string())?;
     if let Some(host) = available_host(runtime_dir) {
+        validate_host_protocol(&host, runtime_dir)?;
         return Ok(host);
     }
     let binary = host_release_binary(runtime_dir);
@@ -346,7 +349,7 @@ fn prebuilt_host_path() -> Option<PathBuf> {
         PathBuf::from(std::env::var_os("HOME")?)
             .join("Library/Application Support")
             .join("Sabine")
-    } else if let Some(path) = std::env::var_os("XDG_DATA_HOME") {
+    } else if let Some(path) = std::env::var_os("XDG_DATA_HOME").filter(|path| !path.is_empty()) {
         PathBuf::from(path).join("sabine")
     } else {
         PathBuf::from(std::env::var_os("HOME")?).join(".local/share/sabine")
@@ -359,13 +362,6 @@ fn prebuilt_host_path() -> Option<PathBuf> {
     let current =
         serde_json::from_slice::<CurrentSystem>(&std::fs::read(bin.join("current.json")).ok()?)
             .ok()?;
-    let package_version = env!("CARGO_PKG_VERSION");
-    let public_version = package_version
-        .strip_suffix(".0")
-        .unwrap_or(package_version);
-    if current.active != public_version {
-        return None;
-    }
     let directory = bin.join("versions").join(current.active);
     let path = installed_host_path(&directory);
     path.is_file().then_some(path)

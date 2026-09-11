@@ -40,6 +40,7 @@
 #include "include/internal/cef_types.h"
 #include "include/wrapper/cef_helpers.h"
 #include "common/json.h"
+#include "common/bridge_policy.h"
 #include "sabine_bridge_js.h"
 #include "osr/accelerated/paint.h"
 #include "osr/utilities.h"
@@ -51,7 +52,8 @@ SabineOsrHandler::SabineOsrHandler(std::string endpoint,
                                int width,
 	                               int height,
 	                               float scale,
-	                               std::vector<std::string> bridge_commands,
+	                               CefRefPtr<CefDictionaryValue> bridge_policy,
+                                   bool dev_mode,
 	                               bool transparent_background,
 	                               int active_frame_rate,
 	                               int background_frame_rate)
@@ -60,11 +62,13 @@ SabineOsrHandler::SabineOsrHandler(std::string endpoint,
 	      width_(std::max(1, width)),
 	      height_(std::max(1, height)),
 	      scale_(std::max(0.25f, scale)),
-	      bridge_commands_(bridge_commands.begin(), bridge_commands.end()),
+	      bridge_policy_(bridge_policy),
 	      transparent_background_(transparent_background),
 	      active_frame_rate_(std::max(1, active_frame_rate)),
 	      background_frame_rate_(std::max(1, background_frame_rate)) {
-  dev_mode_ = CefCommandLine::GetGlobalCommandLine()->HasSwitch("sabine-dev-mode");
+  dev_mode_ = dev_mode;
+  const auto commands = sabine_bridge::Commands(bridge_policy);
+  bridge_commands_.insert(commands.begin(), commands.end());
   if (!g_instance) {
     g_instance = this;
   }
@@ -158,7 +162,13 @@ void CreateSabineOsrBrowser(CefRefPtr<CefCommandLine> command_line) {
 	              << std::endl;
 	  }
 
-	  CefBrowserSettings browser_settings;
+	  auto policy_value = CefParseJSON(command_line->GetSwitchValue("sabine-bridge-policy"), JSON_PARSER_RFC);
+  auto policy = policy_value ? policy_value->GetDictionary() : nullptr;
+  if (!policy) {
+    std::cerr << "Sabine OSR: missing bridge policy" << std::endl;
+    return;
+  }
+  CefBrowserSettings browser_settings;
 	  browser_settings.windowless_frame_rate = active_frame_rate;
   if (command_line->HasSwitch("sabine-transparent")) {
     browser_settings.background_color = CefColorSetARGB(0, 0, 0, 0);
@@ -174,9 +184,9 @@ void CreateSabineOsrBrowser(CefRefPtr<CefCommandLine> command_line) {
 	      &window_info, sabine_osr::PreferSharedTexture(command_line));
 	  CefRefPtr<SabineOsrHandler> handler(new SabineOsrHandler(
 	      endpoint, authentication_token, width, height, scale,
-	      BridgeCommands(command_line),
+	      policy, command_line->HasSwitch("sabine-dev-mode"),
 	      command_line->HasSwitch("sabine-transparent"), active_frame_rate,
 	      background_frame_rate));
   CefBrowserHost::CreateBrowser(window_info, handler, url, browser_settings,
-                                nullptr, nullptr);
+                                policy, nullptr);
 }

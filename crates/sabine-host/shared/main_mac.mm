@@ -1,6 +1,8 @@
 #import <Cocoa/Cocoa.h>
 
 #include <string>
+#include <iostream>
+#include "sabine_host_protocol.h"
 
 #include "entry.h"
 #include "include/cef_application_mac.h"
@@ -32,6 +34,10 @@ int main(int argc, char* argv[]) {
   bool subprocess = false;
   for (int index = 1; index < argc; ++index) {
     const std::string argument(argv[index]);
+    if (argument == "--sabine-host-protocol") {
+      std::cout << SABINE_HOST_PROTOCOL_VERSION << std::endl;
+      return 0;
+    }
     if (argument.rfind("--type=", 0) == 0 || argument == "--type") {
       subprocess = true;
       break;

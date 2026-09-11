@@ -13,8 +13,14 @@ pub(crate) const HOST_SOURCES: &[(&str, &str)] = &[
     ),
     ("app/app.cc", include_str!("../shared/app/app.cc")),
     ("app/app.h", include_str!("../shared/app/app.h")),
+    ("app/bridge.cc", include_str!("../shared/app/bridge.cc")),
+    ("app/bridge.h", include_str!("../shared/app/bridge.h")),
     ("common/json.cc", include_str!("../shared/common/json.cc")),
     ("common/json.h", include_str!("../shared/common/json.h")),
+    (
+        "common/bridge_policy.h",
+        include_str!("../shared/common/bridge_policy.h"),
+    ),
     ("guest/input.cc", include_str!("../shared/guest/input.cc")),
     ("guest/input.h", include_str!("../shared/guest/input.h")),
     (
@@ -92,6 +98,14 @@ pub(crate) fn write_host_source(source_dir: &Path) -> Result<(), String> {
         }
         std::fs::write(path, body).map_err(|error| error.to_string())?;
     }
+    std::fs::write(
+        source_dir.join("sabine_host_protocol.h"),
+        format!(
+            "#pragma once\n#define SABINE_HOST_PROTOCOL_VERSION \"{}\"\n",
+            crate::HOST_PROTOCOL_VERSION
+        ),
+    )
+    .map_err(|error| error.to_string())?;
     std::fs::write(source_dir.join("sabine_bridge_js.h"), bridge_js_header())
         .map_err(|error| error.to_string())?;
     Ok(())
@@ -111,6 +125,7 @@ pub(crate) fn host_source_fingerprint() -> String {
         hash_bytes(&mut hash, body.as_bytes());
     }
     hash_bytes(&mut hash, INSTALL_SCRIPT.as_bytes());
+    hash_bytes(&mut hash, crate::HOST_PROTOCOL_VERSION.as_bytes());
     format!("{hash:016x}")
 }
 

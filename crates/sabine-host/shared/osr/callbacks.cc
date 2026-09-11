@@ -235,9 +235,6 @@ void SabineOsrHandler::OnLoadStart(CefRefPtr<CefBrowser> browser,
     SendMessage(kMainLoadStarted, 0, 0, 0, 0, nullptr, 0);
     InstallTransparentBackground(frame);
   }
-  if (!guest || guest->allow_bridge) {
-    InstallBridge(browser, frame);
-  }
 }
 
 void SabineOsrHandler::OnLoadEnd(CefRefPtr<CefBrowser> browser,
@@ -250,12 +247,8 @@ void SabineOsrHandler::OnLoadEnd(CefRefPtr<CefBrowser> browser,
   GuestView* guest = GuestForBrowser(browser);
   if (!guest) {
     InstallTransparentBackground(frame);
-    InstallBridge(browser, frame);
     SendMessage(kMainLoadReady, 0, 0, 0, 0, nullptr, 0);
     return;
-  }
-  if (guest->allow_bridge) {
-    InstallBridge(browser, frame);
   }
   guest->url = frame->GetURL();
   EmitPrimaryEvent("guest.navigated", GuestNavigatedJson(*guest));

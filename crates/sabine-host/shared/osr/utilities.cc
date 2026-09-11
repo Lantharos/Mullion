@@ -41,7 +41,6 @@
 #include "include/internal/cef_types.h"
 #include "include/wrapper/cef_helpers.h"
 #include "common/json.h"
-#include "sabine_bridge_js.h"
 #include "osr/utilities.h"
 
 using namespace sabine_osr;
@@ -106,17 +105,6 @@ std::vector<std::string> Split(const std::string& value, char separator) {
     parts.push_back(item);
   }
   return parts;
-}
-
-std::vector<std::string> BridgeCommands(CefRefPtr<CefCommandLine> command_line) {
-  std::vector<std::string> commands;
-  for (const auto& item :
-       Split(std::string(command_line->GetSwitchValue("sabine-bridge-commands")), ',')) {
-    if (!item.empty()) {
-      commands.push_back(item);
-    }
-  }
-  return commands;
 }
 
 std::string DecodeControlComponent(const std::string& value) {
@@ -186,24 +174,6 @@ std::string BridgeRequestId(const std::string& url) {
       url.substr(start, end == std::string::npos ? std::string::npos : end - start));
 }
 
-std::string UrlOrigin(const std::string& url) {
-  const size_t scheme_end = url.find("://");
-  if (scheme_end == std::string::npos) {
-    return "null";
-  }
-  const std::string scheme = url.substr(0, scheme_end);
-  if (scheme == "file" || scheme == "about" || scheme == "devtools") {
-    return scheme + "://";
-  }
-  const size_t authority_start = scheme_end + 3;
-  const size_t authority_end = url.find_first_of("/?#", authority_start);
-  const std::string authority = url.substr(
-      authority_start,
-      authority_end == std::string::npos ? std::string::npos
-                                         : authority_end - authority_start);
-  return authority.empty() ? "null" : scheme + "://" + authority;
-}
-
 std::string HtmlEscape(const std::string& value) {
   std::string escaped;
   escaped.reserve(value.size());
@@ -218,14 +188,6 @@ std::string HtmlEscape(const std::string& value) {
     }
   }
   return escaped;
-}
-
-std::string BridgeInstallScript(const std::set<std::string>& commands) {
-  // See the matching comment in handler.cc: the canonical bridge script is
-  // embedded as SABINE_BRIDGE_JS_RAW by host.rs at C++ build time.
-  std::string prelude =
-      "window.__sabineBridgeCommands=" + JsArray(commands) + ";";
-  return prelude + SABINE_BRIDGE_JS_RAW;
 }
 
 bool ParseBridgeResponse(const std::string& line,

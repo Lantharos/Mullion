@@ -53,6 +53,7 @@ struct GuestView {
   std::string partition;
   bool visible = true;
   bool allow_bridge = false;
+  CefRefPtr<CefDictionaryValue> bridge_policy;
   bool allow_downloads = true;
   std::vector<std::string> intercepted_shortcuts;
   bool intercept_horizontal_wheel = false;
@@ -64,6 +65,7 @@ struct GuestView {
 };
 
 struct GuestCreateRequest {
+  std::string html;
   std::string id;
   std::string url;
   CefRect bounds = CefRect(0, 0, 1, 1);

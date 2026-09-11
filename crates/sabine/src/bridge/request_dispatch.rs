@@ -113,7 +113,7 @@ impl BridgeRequestDispatcher {
                             }
                             result
                         } else {
-                            runtime.dispatch(request.command.clone())
+                            runtime.dispatch_from_authorized_document(request.command.clone())
                         }
                     }))
                     .unwrap_or_else(|_| Err(BridgeError::new("Bridge handler panicked")));

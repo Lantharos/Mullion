@@ -252,11 +252,21 @@ through `sabine`.
 Bridge commands must be registered before launch. Each command can constrain targets and origins.
 The host rejects unknown commands, invalid targets, and origins outside the configured allowlist.
 
-Local `file://` application content is trusted by default. Remote content is not implicitly trusted.
+Only the configured local entry document is trusted automatically; its query and fragment may change.
+Other local files, opaque documents, and developer tools pages receive no implicit bridge access.
+Remote documents must have a matching document security origin, so a CSP sandbox cannot inherit
+privileges merely by retaining an allowed URL.
 Calling `.url(...)` adds that URL's exact origin; development URLs add loopback variants needed by
 local toolchains.
 
-Guests default to `allow_bridge = false`. A guest gets an isolated request context when it declares a
+Native window and guest operations pass through the same document checks before dispatch.
+A command-specific origin grants that command only, without granting window controls or app events.
+Responses are bound to their originating V8 context and native request identity; navigation,
+cancellation, or caller request-ID reuse cannot redirect a response into another document.
+Resolved and failed JavaScript calls release their timeout immediately.
+
+Guests default to `allow_bridge = false`. Explicitly supplied HTML in an opted-in guest remains
+trusted when the app replaces it through `guest.navigate`; arbitrary data URLs do not gain access. A guest gets an isolated request context when it declares a
 partition. Popup policy, download policy, visibility, bounds, intercepted shortcuts, and horizontal
 wheel interception are all explicit guest properties.
 
@@ -409,3 +419,11 @@ and closes with Enter, Escape, or the window close button. Startup failures befo
 the app window opens display a separate notice. The windows render Unicode text
 using installed fonts and wrap messages; the log retains text beyond the visible
 window area.
+
+The native host and app must support the same host protocol. Sabine checks the host before
+launching Chromium and reports a repair/update error when an older installation cannot enforce
+the app's bridge policy.
+
+Packaged apps use an installed host and never invoke a compiler on the user's machine. Development
+builds and the packaging CLI can build a host from the CEF SDK. Compatible newer shared hosts are
+selected by their native protocol rather than requiring an identical app framework version.

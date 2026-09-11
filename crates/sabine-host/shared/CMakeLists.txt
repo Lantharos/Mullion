@@ -36,8 +36,11 @@ set(SABINE_HOST_SOURCES
   entry.h
   app/app.cc
   app/app.h
+  app/bridge.cc
+  app/bridge.h
   common/json.cc
   common/json.h
+  common/bridge_policy.h
   guest/input.cc
   guest/input.h
   guest/manager.cc

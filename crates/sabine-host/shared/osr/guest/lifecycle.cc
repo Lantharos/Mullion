@@ -41,6 +41,7 @@
 #include "include/internal/cef_types.h"
 #include "include/wrapper/cef_helpers.h"
 #include "common/json.h"
+#include "common/bridge_policy.h"
 #include "sabine_bridge_js.h"
 #include "osr/accelerated/paint.h"
 #include "osr/utilities.h"
@@ -226,12 +227,17 @@ void SabineOsrHandler::ContinueCreateGuest(
       &window_info,
       sabine_osr::PreferSharedTexture(CefCommandLine::GetGlobalCommandLine()));
 
-  CefRefPtr<CefDictionaryValue> extra_info = CefDictionaryValue::Create();
-  extra_info->SetBool("sabineAllowBridge", request.allow_bridge);
+  CefRefPtr<CefDictionaryValue> extra_info = bridge_policy_->Copy(false);
+  extra_info->SetBool("enabled", request.allow_bridge);
+  extra_info->SetString("htmlPrefix", HtmlDataUri("<!--" + sabine_bridge::UniqueToken() + "-->"));
+  const std::string initial_url = request.html.empty() ? request.url :
+      sabine_bridge::TrustedHtmlUrl(extra_info, request.html);
+  guests_.Find(request.id)->url = initial_url;
+  guests_.Find(request.id)->bridge_policy = extra_info;
   extra_info->SetString("sabineGuestId", request.id);
 
   CefRefPtr<CefBrowser> browser =
-      CefBrowserHost::CreateBrowserSync(window_info, this, request.url, settings,
+      CefBrowserHost::CreateBrowserSync(window_info, this, initial_url, settings,
                                        extra_info, context);
   pending_guest_id_.clear();
 

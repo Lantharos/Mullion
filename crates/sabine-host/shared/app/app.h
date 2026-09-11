@@ -1,7 +1,7 @@
 #ifndef SABINE_CEF_HOST_APP_H_
 #define SABINE_CEF_HOST_APP_H_
 
-#include <set>
+#include <vector>
 
 #include "include/cef_app.h"
 #include "include/cef_render_process_handler.h"
@@ -30,13 +30,23 @@ class SabineApp : public CefApp,
   void OnContextCreated(CefRefPtr<CefBrowser> browser,
                         CefRefPtr<CefFrame> frame,
                         CefRefPtr<CefV8Context> context) override;
+  void OnContextReleased(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
+                         CefRefPtr<CefV8Context> context) override;
+  bool OnProcessMessageReceived(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
+                                CefProcessId source_process,
+                                CefRefPtr<CefProcessMessage> message) override;
   bool OnAlreadyRunningAppRelaunch(
       CefRefPtr<CefCommandLine> command_line,
       const CefString& current_directory) override;
   CefRefPtr<CefClient> GetDefaultClient() override;
 
  private:
-  std::set<int> unprivileged_browsers_;
+  struct BrowserPolicy {
+    CefRefPtr<CefBrowser> browser;
+    CefRefPtr<CefDictionaryValue> policy;
+  };
+  std::vector<BrowserPolicy> bridge_policies_;
+  CefRefPtr<CefDictionaryValue> BridgePolicyFor(CefRefPtr<CefBrowser> browser);
   const bool runtime_smoke_test_;
 
   IMPLEMENT_REFCOUNTING(SabineApp);

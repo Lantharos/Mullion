@@ -31,6 +31,7 @@
     const entry = pending.get(String(id));
     if (!entry) return;
     pending.delete(String(id));
+    clearTimeout(entry.timer);
     if (ok) {
       entry.resolve(payload);
     } else {
@@ -112,14 +113,22 @@
         "?name=" + encodeURIComponent(name) +
         "&payload=" + payload;
       return new Promise((resolve, reject) => {
-        pending.set(id, { resolve, reject });
-        setTimeout(() => {
-          if (pending.has(id)) {
-            pending.delete(id);
+        const timer = setTimeout(() => {
+          pending.delete(id);
+          try {
+            postNative("sabine://cancel/" + id);
+          } finally {
             reject(new Error("Sabine bridge command timed out: " + name));
           }
         }, 60000);
-        postNative(url);
+        pending.set(id, { resolve, reject, timer });
+        try {
+          postNative(url);
+        } catch (error) {
+          clearTimeout(timer);
+          pending.delete(id);
+          reject(error);
+        }
       });
     },
   };

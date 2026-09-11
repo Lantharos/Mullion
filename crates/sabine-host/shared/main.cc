@@ -9,6 +9,8 @@
 #endif
 
 #include <cstdlib>
+#include <iostream>
+#include "sabine_host_protocol.h"
 #include <string>
 
 #include "include/base/cef_compiler_specific.h"
@@ -38,6 +40,10 @@ int RunSabineHost(CefMainArgs main_args, int argc, char* argv[]) {
 #else
   command_line->InitFromArgv(argc, argv);
 #endif
+  if (command_line->HasSwitch("sabine-host-protocol")) {
+    std::cout << SABINE_HOST_PROTOCOL_VERSION << std::endl;
+    return 0;
+  }
   const bool runtime_smoke_test =
       command_line->HasSwitch("sabine-runtime-smoke-test");
   CefRefPtr<SabineApp> app(new SabineApp(runtime_smoke_test));

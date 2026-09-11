@@ -58,7 +58,8 @@ class SabineOsrHandler : public CefClient,
                  int width,
                  int height,
 	                 float scale,
-	                 std::vector<std::string> bridge_commands,
+	                 CefRefPtr<CefDictionaryValue> bridge_policy,
+                   bool dev_mode,
 	                 bool transparent_background,
 	                 int active_frame_rate,
 	                 int background_frame_rate);
@@ -233,7 +234,6 @@ class SabineOsrHandler : public CefClient,
                            const std::string& url);
   bool HandleWindowCommand(CefRefPtr<CefBrowser> browser, const std::string& url);
   void RequestNativeClose();
-	  void InstallBridge(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame);
 	  void InstallTransparentBackground(CefRefPtr<CefFrame> frame);
 	  void ApplyLifecycle(const std::string& state, int frame_rate, const std::string& reason);
 	  void DispatchLifecycle(const std::string& state, const std::string& reason);
@@ -309,6 +309,8 @@ class SabineOsrHandler : public CefClient,
   std::map<std::string, GuestDownload> downloads_;
   int guest_serial_ = 0;
 	  std::set<std::string> bridge_commands_;
+  CefRefPtr<CefDictionaryValue> bridge_policy_;
+  CefRefPtr<CefDictionaryValue> BridgePolicyFor(CefRefPtr<CefBrowser> browser);
 	  bool transparent_background_ = false;
 	  bool suspended_ = false;
 	  // True only when the view is actually taken off-screen (hibernate).

@@ -187,6 +187,15 @@ impl BridgeRuntime {
         self.handlers.dispatch(command)
     }
 
+    /// Dispatch from an authenticated native host after it has authorized the live document.
+    /// This entry point must never receive requests directly from page-controlled transports.
+    pub fn dispatch_from_authorized_document(&self, command: BridgeCommand) -> BridgeResult {
+        let descriptor = self.registry.descriptor(&command.name);
+        validate_permissions(&self.security, &command, descriptor)?;
+        validate_targets(&command, descriptor)?;
+        self.handlers.dispatch(command)
+    }
+
     pub fn security(&self) -> &ContentSecurity {
         &self.security
     }
@@ -280,12 +289,7 @@ fn validate_origin(
     command: &BridgeCommand,
     descriptor: Option<&BridgeCommandDescriptor>,
 ) -> std::result::Result<(), BridgeError> {
-    let Some(origin) = command.origin.as_deref() else {
-        return Ok(());
-    };
-    if origin == "null" || origin.starts_with("file://") || origin.starts_with("devtools://") {
-        return Ok(());
-    }
+    let origin = command.origin.as_deref().unwrap_or("");
     let command_origins = descriptor
         .map(|descriptor| descriptor.allowed_origins.as_slice())
         .unwrap_or(&[]);
@@ -301,9 +305,13 @@ fn validate_origin(
 }
 
 fn origin_matches(origin: &str, allowed: &[String]) -> bool {
+    if origin.is_empty() || origin == "null" || origin.starts_with("devtools://") {
+        return false;
+    }
     allowed.iter().any(|candidate| {
         candidate == origin
-            || candidate == "*"
+            || (candidate == "*"
+                && (origin.starts_with("https://") || origin.starts_with("http://")))
             || (candidate.ends_with("/*") && origin.starts_with(candidate.trim_end_matches('*')))
     })
 }
@@ -344,7 +352,11 @@ mod tests {
         });
         let mut registry = BridgeRegistry::default();
         registry.register("notes.list");
-        let runtime = BridgeRuntime::new(handlers, registry, ContentSecurity::default());
+        let runtime = BridgeRuntime::new(
+            handlers,
+            registry,
+            ContentSecurity::default().allow_origin("file:///tmp/index.html"),
+        );
 
         let response = runtime.dispatch(command("notes.list")).unwrap();
         assert_eq!(response.result["name"], "notes.list");
@@ -355,7 +367,11 @@ mod tests {
         let handlers = BridgeHandlers::default();
         let mut registry = BridgeRegistry::default();
         registry.register("notes.list");
-        let runtime = BridgeRuntime::new(handlers, registry, ContentSecurity::default());
+        let runtime = BridgeRuntime::new(
+            handlers,
+            registry,
+            ContentSecurity::default().allow_origin("file:///tmp/index.html"),
+        );
 
         let error = runtime.dispatch(command("notes.list")).unwrap_err();
         assert!(error.message.contains("not registered"));
@@ -370,7 +386,11 @@ mod tests {
         let mut registry = BridgeRegistry::default();
         registry
             .register_descriptor(BridgeCommandDescriptor::new("vault.unlock").permission("vault"));
-        let runtime = BridgeRuntime::new(handlers, registry, ContentSecurity::default());
+        let runtime = BridgeRuntime::new(
+            handlers,
+            registry,
+            ContentSecurity::default().allow_origin("file:///tmp/index.html"),
+        );
 
         let error = runtime.dispatch(command("vault.unlock")).unwrap_err();
         assert!(error.message.contains("requires permission"));
@@ -407,7 +427,11 @@ mod tests {
         });
         let mut registry = BridgeRegistry::default();
         registry.register("notes.list");
-        let runtime = BridgeRuntime::new(handlers, registry, ContentSecurity::default());
+        let runtime = BridgeRuntime::new(
+            handlers,
+            registry,
+            ContentSecurity::default().allow_origin("file:///tmp/index.html"),
+        );
         let mut request = command("notes.list");
         request.origin = Some("https://app.example".to_string());
 
@@ -423,7 +447,11 @@ mod tests {
         });
         let mut registry = BridgeRegistry::default();
         registry.register_descriptor(BridgeCommandDescriptor::new("mobile.only").target("mobile"));
-        let runtime = BridgeRuntime::new(handlers, registry, ContentSecurity::default());
+        let runtime = BridgeRuntime::new(
+            handlers,
+            registry,
+            ContentSecurity::default().allow_origin("file:///tmp/index.html"),
+        );
 
         let error = runtime.dispatch(command("mobile.only")).unwrap_err();
         assert!(error.message.contains("unavailable"));

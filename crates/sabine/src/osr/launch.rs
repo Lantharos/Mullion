@@ -107,7 +107,6 @@ pub(crate) fn launch_process(
             app_id,
             bridge_handlers: bridge_handlers.clone(),
             bridge: config.bridge.clone(),
-            security: config.security.clone(),
         }),
     })
 }
@@ -118,7 +117,6 @@ pub(crate) struct OpenWindowContext {
     pub(crate) app_id: String,
     pub(crate) bridge_handlers: BridgeHandlers,
     pub(crate) bridge: sabine_bridge::BridgeRegistry,
-    pub(crate) security: sabine_bridge::ContentSecurity,
 }
 
 pub(crate) fn spawn_osr_host_child(
@@ -153,7 +151,15 @@ pub(crate) fn spawn_osr_host_child(
         "shell_surface": crate::osr::protocol::shell_surface_to_json(config.shell_surface.as_ref()),
         "background_effect": config.background_effect.as_str(),
         "chrome": config.chrome.as_str(),
-        "bridge_commands": sabine_bridge::bridge_commands_with_all_internal(config.bridge.commands()),
+        "bridge_policy": {
+            "enabled": true,
+            "document": if url.starts_with("file://") { url } else { "" },
+            "origins": if config.security.remote_content { config.security.allowed_origins.clone() } else { Vec::new() },
+            "commandOrigins": config.bridge.commands().iter().filter_map(|name| {
+                config.bridge.descriptor(name).map(|descriptor| (name.clone(), serde_json::json!(descriptor.allowed_origins)))
+            }).collect::<serde_json::Map<String, serde_json::Value>>(),
+            "commands": sabine_bridge::bridge_commands_with_all_internal(config.bridge.commands()),
+        },
         "regions": crate::osr::protocol::regions_to_json(&config.regions),
         "drag_regions": crate::osr::protocol::rects_to_json(&config.drag_regions),
         "drag_exclusion_regions": crate::osr::protocol::rects_to_json(&config.drag_exclusion_regions),
@@ -227,7 +233,7 @@ pub(crate) fn attach_open_window(
         BridgeRuntime::new(
             context.bridge_handlers.clone(),
             context.bridge.clone(),
-            context.security.clone(),
+            window_config.security.clone(),
         ),
         process.activity.clone(),
         &emitter,
@@ -268,6 +274,7 @@ pub(crate) fn cef_osr_command(
         )
     })?;
     sabine_host::prepare_host_runtime(&host_binary, runtime_dir)?;
+    sabine_host::validate_host_protocol(&host_binary, runtime_dir)?;
     let binary_dir = sabine_host::runtime_binary_directory(runtime_dir);
     let profile_key = browser_profile_key(config);
     let cache_dir = browser_profile_dir(&profile_key);
@@ -295,10 +302,7 @@ pub(crate) fn cef_osr_command(
         .arg(format!("--sabine-width={}", viewport.width))
         .arg(format!("--sabine-height={}", viewport.height))
         .arg(format!("--sabine-scale={:.4}", viewport.scale))
-        .arg(format!(
-            "--sabine-bridge-commands={}",
-            config.bridge_commands.join(",")
-        ))
+        .arg(format!("--sabine-bridge-policy={}", config.bridge_policy))
         .arg(format!(
             "--sabine-active-frame-rate={}",
             viewport.frame_rate.max(1)

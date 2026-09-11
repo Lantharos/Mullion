@@ -219,6 +219,7 @@ bool ParseGuestCreateRequest(const std::string& payload,
     return false;
   }
   request->url = url.empty() ? HtmlDataUri(html) : url;
+  request->html = url.empty() ? html : "";
   request->bounds = ParseGuestBounds(payload, CefRect(0, 0, 1, 1));
   request->partition = JsonStringValue(payload, "partition");
   request->allow_bridge =

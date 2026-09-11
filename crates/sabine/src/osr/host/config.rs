@@ -36,7 +36,7 @@ pub(crate) struct OsrHostConfig {
     pub shell_surface: Option<ShellSurfaceOptions>,
     pub background_effect: WindowBackgroundEffect,
     pub chrome: SabineWindowChrome,
-    pub bridge_commands: Vec<String>,
+    pub bridge_policy: serde_json::Value,
     pub regions: WindowRegions,
     pub drag_regions: Vec<WindowRegionRect>,
     pub drag_exclusion_regions: Vec<WindowRegionRect>,
@@ -147,17 +147,10 @@ impl OsrHostConfig {
                 .and_then(serde_json::Value::as_str)
                 .and_then(SabineWindowChrome::parse)
                 .unwrap_or(SabineWindowChrome::System),
-            bridge_commands: value
-                .get("bridge_commands")
-                .and_then(serde_json::Value::as_array)
-                .map(|values| {
-                    values
-                        .iter()
-                        .filter_map(serde_json::Value::as_str)
-                        .map(ToString::to_string)
-                        .collect()
-                })
-                .unwrap_or_default(),
+            bridge_policy: value
+                .get("bridge_policy")
+                .cloned()
+                .ok_or("OSR host config missing bridge policy")?,
             regions: regions_from_json(value.get("regions")),
             drag_regions: rects_from_json(value.get("drag_regions")),
             drag_exclusion_regions: rects_from_json(value.get("drag_exclusion_regions")),

@@ -40,6 +40,7 @@
 #include "include/internal/cef_types.h"
 #include "include/wrapper/cef_helpers.h"
 #include "common/json.h"
+#include "common/bridge_policy.h"
 #include "sabine_bridge_js.h"
 #include "osr/utilities.h"
 
@@ -133,7 +134,7 @@ bool SabineOsrHandler::RunGuestOperation(const std::string& operation,
       *error = "guest.navigate requires a `url` or `html`";
       return false;
     }
-    guest->url = url.empty() ? HtmlDataUri(html) : url;
+    guest->url = url.empty() ? sabine_bridge::TrustedHtmlUrl(guest->bridge_policy, html) : url;
     browser->GetMainFrame()->LoadURL(guest->url);
     return true;
   }
