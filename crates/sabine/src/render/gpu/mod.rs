@@ -12,6 +12,7 @@ use crate::render::{DisplayCommand, DisplayList};
 
 mod image_rects;
 mod images;
+mod instance;
 mod text;
 mod vertex_buffer;
 
@@ -90,40 +91,10 @@ fn select_surface_alpha_mode(
         .unwrap_or(modes[0])
 }
 
-fn preferred_backends() -> wgpu::Backends {
-    #[cfg(target_os = "windows")]
-    {
-        wgpu::Backends::DX12
-    }
-    #[cfg(target_os = "linux")]
-    {
-        wgpu::Backends::VULKAN | wgpu::Backends::GL
-    }
-    #[cfg(target_os = "macos")]
-    {
-        wgpu::Backends::METAL
-    }
-    #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
-    {
-        wgpu::Backends::all()
-    }
-}
-
 impl GpuRenderer {
     pub async fn new(window: Arc<dyn Window>, transparent: bool) -> Result<Self, RendererError> {
         let size = window.surface_size();
-        let instance_descriptor = wgpu::InstanceDescriptor {
-            backends: preferred_backends(),
-            ..wgpu::InstanceDescriptor::new_without_display_handle()
-        };
-        #[cfg(target_os = "windows")]
-        let instance_descriptor = {
-            let mut descriptor = instance_descriptor;
-            descriptor.backend_options.dx12.presentation_system =
-                wgpu::Dx12SwapchainKind::DxgiFromVisual;
-            descriptor
-        };
-        let instance = wgpu::Instance::new(instance_descriptor);
+        let instance = instance::shared();
         let surface = instance
             .create_surface(window.clone())
             .map_err(|error| RendererError::Surface(error.to_string()))?;

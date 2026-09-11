@@ -134,7 +134,9 @@ that job so the shared browser process remains available to sibling windows.
 ## Paint and composition
 
 Sabine uses one paint policy per platform. Apps cannot select a renderer or opt into experimental
-transport branches.
+transport branches. The GPU instance is shared within each process across window recreation.
+Hibernation still releases per-window devices, surfaces, and textures; resuming reuses the
+backend connection instead of repeatedly initializing graphics drivers.
 
 - **Windows** uses accelerated `OnAcceleratedPaint`. CEF owns and pools the callback texture, so the
   CEF host first opens it on D3D11 and copies it into one of four Sabine-owned D3D12 shared textures
