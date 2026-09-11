@@ -23,7 +23,7 @@ use build_lock::HostBuildLock;
 use sources::write_host_source;
 use toolchain::apply_cmake_generator;
 
-const RUNTIME_PROBE_VERSION: u32 = 3;
+const RUNTIME_PROBE_VERSION: u32 = 4;
 
 pub fn host_binary_name() -> &'static str {
     if cfg!(target_os = "windows") {
@@ -154,6 +154,9 @@ pub fn smoke_test_runtime(host: &Path, runtime_dir: &Path) -> Result<(), String>
     std::fs::create_dir_all(&cache_dir)
         .map_err(|error| format!("could not create CEF runtime probe cache: {error}"))?;
     let _cache = TemporaryDirectory(cache_dir.clone());
+    let stderr_path = cache_dir.join("probe.stderr");
+    let stderr = std::fs::File::create(&stderr_path)
+        .map_err(|error| format!("could not create CEF probe diagnostics: {error}"))?;
     let mut command = Command::new(&host);
     configure_background_command(&mut command);
     command
@@ -162,7 +165,7 @@ pub fn smoke_test_runtime(host: &Path, runtime_dir: &Path) -> Result<(), String>
         .current_dir(&binary_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::piped());
+        .stderr(stderr);
     apply_runtime_resource_args(&mut command, runtime_dir);
     #[cfg(target_os = "linux")]
     {
@@ -211,10 +214,11 @@ pub fn smoke_test_runtime(host: &Path, runtime_dir: &Path) -> Result<(), String>
         }
         thread::sleep(Duration::from_millis(50));
     };
-    let mut stderr = String::new();
-    if let Some(mut pipe) = child.stderr.take() {
-        let _ = pipe.read_to_string(&mut stderr);
+    let mut stderr = Vec::new();
+    if let Ok(file) = std::fs::File::open(stderr_path) {
+        let _ = file.take(64 * 1024).read_to_end(&mut stderr);
     }
+    let stderr = String::from_utf8_lossy(&stderr);
     if status.success() {
         Ok(())
     } else {

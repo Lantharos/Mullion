@@ -96,7 +96,8 @@ int RunSabineHost(CefMainArgs main_args, int argc, char* argv[]) {
   }
 
   if (runtime_smoke_test) {
-    std::_Exit(0);
+    CefShutdown();
+    return 0;
   }
 
   CefRunMessageLoop();
