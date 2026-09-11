@@ -119,6 +119,30 @@ std::vector<std::string> BridgeCommands(CefRefPtr<CefCommandLine> command_line) 
   return commands;
 }
 
+std::string DecodeControlComponent(const std::string& value) {
+  auto hex_digit = [](char digit) -> int {
+    if (digit >= '0' && digit <= '9') return digit - '0';
+    if (digit >= 'a' && digit <= 'f') return digit - 'a' + 10;
+    if (digit >= 'A' && digit <= 'F') return digit - 'A' + 10;
+    return -1;
+  };
+  std::string decoded;
+  decoded.reserve(value.size());
+  for (size_t index = 0; index < value.size(); ++index) {
+    if (value[index] == '%' && index + 2 < value.size()) {
+      const int high = hex_digit(value[index + 1]);
+      const int low = hex_digit(value[index + 2]);
+      if (high >= 0 && low >= 0) {
+        decoded.push_back(static_cast<char>((high << 4) | low));
+        index += 2;
+        continue;
+      }
+    }
+    decoded.push_back(value[index]);
+  }
+  return decoded;
+}
+
 std::string DecodeUriComponent(const std::string& value) {
   return CefURIDecode(
              value, true,

@@ -50,6 +50,7 @@ float SwitchFloat(CefRefPtr<CefCommandLine> command_line,
                   float fallback);
 std::vector<std::string> Split(const std::string& value, char separator);
 std::vector<std::string> BridgeCommands(CefRefPtr<CefCommandLine> command_line);
+std::string DecodeControlComponent(const std::string& value);
 std::string DecodeUriComponent(const std::string& value);
 std::string QueryValue(const std::string& url, const std::string& name);
 std::string BridgeRequestId(const std::string& url);

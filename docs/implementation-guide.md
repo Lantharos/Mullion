@@ -259,6 +259,8 @@ While a guest is focused, matching `interceptedShortcuts` are consumed by the ho
 `interceptHorizontalWheel`, predominantly horizontal wheel samples emit `guest.wheel` and are not
 forwarded to the guest. Favicon URL changes emit `guest.favicon`.
 
+Keyboard and IME text in the control protocol uses lossless percent decoding, including carriage returns, tabs, and Unicode. URL display decoding is reserved for URLs; it deliberately preserves some escaped control characters and cannot decode keyboard text.
+
 Editable primary and guest content drives the platform input method on demand. CEF reports the
 focused editor's input mode and composition caret bounds; the native host maps those to the system
 IME, positions its candidate window, and forwards preedit selection and committed text back to the

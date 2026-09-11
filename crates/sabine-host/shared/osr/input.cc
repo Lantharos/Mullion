@@ -252,8 +252,8 @@ void SabineOsrHandler::HandleControlLine(const std::string& line) {
     host->SendTouchEvent(event);
   } else if (parts[0] == "key" && parts.size() >= 6) {
     const bool pressed = std::atoi(parts[1].c_str()) != 0;
-    const std::string key = DecodeUriComponent(parts[2]);
-    const std::string text = DecodeUriComponent(parts[3]);
+    const std::string key = DecodeControlComponent(parts[2]);
+    const std::string text = DecodeControlComponent(parts[3]);
     const uint32_t modifiers = std::strtoul(parts[4].c_str(), nullptr, 10);
     const bool repeat =
         (parts.size() >= 6 && std::atoi(parts[5].c_str()) != 0) ||
@@ -299,7 +299,7 @@ void SabineOsrHandler::HandleControlLine(const std::string& line) {
 	    }
 	  } else if (parts[0] == "lifecycle" && parts.size() >= 3) {
 	    const std::string reason =
-	        parts.size() >= 4 ? DecodeUriComponent(parts[3]) : "";
+	        parts.size() >= 4 ? DecodeControlComponent(parts[3]) : "";
 	    ApplyLifecycle(parts[1], std::max(1, std::atoi(parts[2].c_str())),
 	                   reason);
 	  } else if (parts[0] == "close") {

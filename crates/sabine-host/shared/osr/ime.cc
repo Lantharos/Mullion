@@ -26,12 +26,12 @@ bool TryHandleImeControl(CefRefPtr<CefBrowserHost> host,
     return true;
   }
   if (parts[0] == "ime_commit" && parts.size() >= 2) {
-    CefString text = DecodeUriComponent(parts[1]);
+    CefString text = DecodeControlComponent(parts[1]);
     host->ImeCommitText(text, CefRange(UINT32_MAX, UINT32_MAX), 0);
     return true;
   }
   if (parts[0] == "ime_composition" && parts.size() >= 2) {
-    CefString text = DecodeUriComponent(parts[1]);
+    CefString text = DecodeControlComponent(parts[1]);
     std::vector<CefCompositionUnderline> underlines;
     const uint32_t length = static_cast<uint32_t>(text.length());
     if (length > 0) {
