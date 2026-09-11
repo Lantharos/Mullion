@@ -113,38 +113,10 @@ impl SabineProcess {
 
     /// Block until every OSR window has exited, then tear down the bridge.
     pub fn wait(mut self) -> std::io::Result<ExitStatus> {
-        loop {
-            if self.primary_alive
-                && let Some(status) = self.child.try_wait()?
-            {
-                if let Some(emitter) = &self.bridge_emitter {
-                    emitter.detach(self.child.id());
-                }
-                self.primary_alive = false;
-                self.primary_status = Some(status);
-            }
-
-            let emitter = self.bridge_emitter.clone();
-            self.extra_windows
-                .retain_mut(|window| match window.try_wait() {
-                    Ok(Some(_)) => {
-                        if let Some(emitter) = &emitter {
-                            emitter.detach(window.id());
-                        }
-                        false
-                    }
-                    Ok(None) => true,
-                    Err(_) => {
-                        if let Some(emitter) = &emitter {
-                            emitter.detach(window.id());
-                        }
-                        false
-                    }
-                });
-
-            if !self.primary_alive && self.extra_windows.is_empty() {
-                break;
-            }
+        #[cfg(any(target_os = "windows", target_os = "macos"))]
+        super::desktop_wait::wait(&mut self)?;
+        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+        while !self.collect_exited_windows()? {
             crossbeam_channel::select! {
                 recv(self.child_exit_receiver) -> exited => {
                     exited.map_err(|_| {
@@ -167,7 +139,39 @@ impl SabineProcess {
         })
     }
 
-    fn handle_command(&mut self, command: ProcessCommand) {
+    pub(super) fn collect_exited_windows(&mut self) -> std::io::Result<bool> {
+        if self.primary_alive
+            && let Some(status) = self.child.try_wait()?
+        {
+            if let Some(emitter) = &self.bridge_emitter {
+                emitter.detach(self.child.id());
+            }
+            self.primary_alive = false;
+            self.primary_status = Some(status);
+        }
+
+        let emitter = self.bridge_emitter.clone();
+        self.extra_windows
+            .retain_mut(|window| match window.try_wait() {
+                Ok(Some(_)) => {
+                    if let Some(emitter) = &emitter {
+                        emitter.detach(window.id());
+                    }
+                    false
+                }
+                Ok(None) => true,
+                Err(_) => {
+                    if let Some(emitter) = &emitter {
+                        emitter.detach(window.id());
+                    }
+                    false
+                }
+            });
+
+        Ok(!self.primary_alive && self.extra_windows.is_empty())
+    }
+
+    pub(super) fn handle_command(&mut self, command: ProcessCommand) {
         match command {
             ProcessCommand::OpenWindow { window, response } => {
                 let result = self.open_window(window);

@@ -19,10 +19,12 @@ enum HostMode {
 fn host_mode(args: &[String]) -> Option<HostMode> {
     if args.iter().any(|arg| arg == osr::launch::OSR_HOST_ARG) {
         Some(HostMode::Osr)
-    } else if args
-        .iter()
-        .any(|arg| arg == bootstrap::BOOTSTRAP_ARG || arg == bootstrap::NOTICE_ARG)
-    {
+    } else if args.iter().any(|arg| {
+        matches!(
+            arg.as_str(),
+            bootstrap::BOOTSTRAP_ARG | bootstrap::NOTICE_ARG | bootstrap::CONFIRM_UPDATE_ARG
+        )
+    }) {
         Some(HostMode::Bootstrap)
     } else {
         None

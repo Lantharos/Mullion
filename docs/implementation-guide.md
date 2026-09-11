@@ -167,6 +167,12 @@ selection. Launch metrics start before configuration validation and include shar
 and runtime resolution. Window `maximize()` is idempotent; `toggleMaximize()` toggles maximization,
 and `restore()` leaves fullscreen, maximization, and minimization.
 
+On Windows and macOS, `SabineProcess::wait()` runs the parent process's native event loop. Tray
+icons and global shortcuts are created on that thread after the loop starts; process exits and
+window commands wake it without polling. Use `SabineWindow::main` or call `wait()` on the main
+thread when managing the process yourself. Update confirmation runs in a separate native prompt
+process so it cannot consume the application's event loop before launch.
+
 Transport is platform-specific without changing the protocol. On Unix, sockets live under
 `$XDG_RUNTIME_DIR/sabine/<app_id>/` (mode `0700`) with socket mode `0600`, and each window
 authenticates with a first-line token read from a one-use `0600` token file. The environment is

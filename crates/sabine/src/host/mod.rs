@@ -2,6 +2,8 @@
 use std::path::Path;
 use std::path::PathBuf;
 
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+mod desktop_wait;
 mod process;
 mod process_tree;
 

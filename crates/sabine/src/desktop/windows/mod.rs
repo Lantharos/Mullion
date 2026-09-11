@@ -30,6 +30,8 @@ pub struct DesktopServiceState {
     event_receiver: crossbeam_channel::Receiver<PlatformEvent>,
     _tray: Option<TrayRuntime>,
     _hotkeys: Option<HotkeyRuntime>,
+    pending_tray: Option<TrayIcon>,
+    pending_shortcuts: Vec<GlobalShortcutRegistration>,
     _single_instance: Option<SingleInstanceGuard>,
     menu_actions: Arc<Mutex<MenuActions>>,
     shortcut_actions: Arc<Mutex<ShortcutActions>>,
@@ -45,6 +47,27 @@ impl std::fmt::Debug for DesktopServiceState {
 }
 
 impl DesktopServiceState {
+    pub(crate) fn start_native_events(&mut self) -> Result<(), String> {
+        if let Some(icon) = self.pending_tray.take() {
+            let (tray, actions) = spawn_tray_icon(&icon)?;
+            *self
+                .menu_actions
+                .lock()
+                .map_err(|error| error.to_string())? = actions;
+            self._tray = Some(tray);
+        }
+        let shortcuts = std::mem::take(&mut self.pending_shortcuts);
+        if !shortcuts.is_empty() {
+            let (hotkeys, actions) = spawn_global_shortcuts(&shortcuts)?;
+            *self
+                .shortcut_actions
+                .lock()
+                .map_err(|error| error.to_string())? = actions;
+            self._hotkeys = Some(hotkeys);
+        }
+        Ok(())
+    }
+
     pub fn take_events(&self) -> Vec<PlatformEvent> {
         self.event_receiver.try_iter().collect()
     }
@@ -65,6 +88,8 @@ pub fn apply_desktop_services(
         event_receiver,
         _tray: None,
         _hotkeys: None,
+        pending_tray: tray_icon.cloned(),
+        pending_shortcuts: global_shortcuts.to_vec(),
         _single_instance: None,
         menu_actions: Arc::new(Mutex::new(HashMap::new())),
         shortcut_actions: Arc::new(Mutex::new(HashMap::new())),
@@ -89,18 +114,6 @@ pub fn apply_desktop_services(
     }
     for host in native_messaging_hosts {
         register_native_messaging_host(host)?;
-    }
-
-    if let Some(icon) = tray_icon {
-        let (tray, actions) = spawn_tray_icon(icon)?;
-        *state.menu_actions.lock().unwrap() = actions;
-        state._tray = Some(tray);
-    }
-
-    if !global_shortcuts.is_empty() {
-        let (hotkeys, actions) = spawn_global_shortcuts(global_shortcuts)?;
-        *state.shortcut_actions.lock().unwrap() = actions;
-        state._hotkeys = Some(hotkeys);
     }
 
     Ok(state)

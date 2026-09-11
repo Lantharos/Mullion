@@ -14,6 +14,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+pub(crate) const CONFIRM_UPDATE_ARG: &str = "--sabine-confirm-update";
+
 pub(crate) const NOTICE_ARG: &str = "--sabine-notice";
 
 pub(crate) fn show_failure(title: &str, error: &dyn std::fmt::Display) {
@@ -32,6 +34,13 @@ pub(crate) fn show_failure(title: &str, error: &dyn std::fmt::Display) {
 pub(crate) const BOOTSTRAP_ARG: &str = "--sabine-bootstrap";
 
 pub(crate) fn run_from_args(args: &[String]) -> bool {
+    if let Some(index) = args.iter().position(|arg| arg == CONFIRM_UPDATE_ARG) {
+        let accepted = args
+            .get(index + 1)
+            .zip(args.get(index + 2))
+            .is_some_and(|(title, version)| ui::confirm_update(title, version).unwrap_or(false));
+        std::process::exit(if accepted { 0 } else { 2 });
+    }
     if let Some(index) = args.iter().position(|arg| arg == NOTICE_ARG) {
         if let (Some(title), Some(message)) = (args.get(index + 1), args.get(index + 2))
             && let Err(error) = ui::show_notice(title, message)
@@ -146,7 +155,13 @@ fn offer_pending_update(config: &SabineWindowConfig) {
     if !update.ready_for_prompt() {
         return;
     }
-    if !ui::confirm_update(&config.title, &update.version).unwrap_or(false) {
+    let accepted = std::env::current_exe().ok().is_some_and(|executable| {
+        background_command(executable)
+            .args([CONFIRM_UPDATE_ARG, &config.title, &update.version])
+            .status()
+            .is_ok_and(|status| status.success())
+    });
+    if !accepted {
         let _ = service.defer_pending_app_update(id);
         return;
     }
