@@ -90,6 +90,7 @@ impl OsrNativeHost {
                         crate::osr::control::ControlWriter::start(writer_stream),
                     ));
                     self.awaiting_connection = false;
+                    self.connection_deadline = None;
                     let mut output = std::io::stdout();
                     use std::io::Write;
                     let _ = writeln!(output, "SABINE_OSR_READY");
@@ -254,6 +255,11 @@ impl OsrNativeHost {
                         ));
                     }
                 }
+                super::types::OsrHostEvent::Message(_, OsrMessage::FatalError(message)) => {
+                    self.fail(message);
+                    self.force_close(event_loop);
+                    return;
+                }
                 super::types::OsrHostEvent::Message(_, OsrMessage::MainLoadReady) => {
                     self.main_load_ready = true;
                     if self.main_frame.is_some() {
@@ -326,6 +332,7 @@ impl OsrNativeHost {
                     self.pending_messages = None;
                     self.socket = None;
                     self.awaiting_connection = false;
+                    self.connection_deadline = None;
                     if self.closing_deadline.is_some() {
                         continue;
                     }

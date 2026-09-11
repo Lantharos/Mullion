@@ -141,26 +141,6 @@ impl OsrNativeHost {
         }
     }
 
-    pub(super) fn begin_recovery(&mut self) {
-        if self.closing_deadline.is_some() {
-            return;
-        }
-        if self.lifecycle_state != LifecycleState::Active {
-            self.lifecycle_state = LifecycleState::Hibernated;
-            self.main_frame = None;
-            self.overlays.clear();
-            self.main_buffer.release();
-            if let Some(renderer) = &mut self.renderer {
-                renderer.clear_images();
-            }
-            return;
-        }
-        if self.config.visible {
-            self.loading = Some(NativeLoading::new(LoadingKind::Resuming));
-        }
-        self.launch_child();
-    }
-
     pub(super) fn begin_hibernate(&mut self, reason: &str) {
         if self.lifecycle_state != LifecycleState::Suspended
             || self.socket.is_none()
@@ -190,6 +170,8 @@ impl OsrNativeHost {
         self.pending_messages = None;
         self.socket = None;
         self.awaiting_connection = false;
+        self.connection_deadline = None;
+        self.recovery_deadline = None;
         self.main_frame = None;
         self.overlays.clear();
         self.main_buffer.release();

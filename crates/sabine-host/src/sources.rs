@@ -35,6 +35,7 @@ pub(crate) const HOST_SOURCES: &[(&str, &str)] = &[
         "osr/callbacks.cc",
         include_str!("../shared/osr/callbacks.cc"),
     ),
+    ("osr/recovery.cc", include_str!("../shared/osr/recovery.cc")),
     (
         "osr/downloads.cc",
         include_str!("../shared/osr/downloads.cc"),

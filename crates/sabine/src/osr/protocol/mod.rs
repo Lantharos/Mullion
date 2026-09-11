@@ -91,6 +91,7 @@ pub(crate) enum OsrMessage {
     FileDragRequested(FileDragRequest),
     MainLoadStarted,
     MainLoadReady,
+    FatalError(String),
     ImeStateChanged(u32),
     ImeCursorAreaChanged {
         x: i32,

@@ -31,7 +31,7 @@ pub(crate) fn run_from_args(args: &[String]) -> bool {
         std::process::exit(1);
     }
     if let Err(error) = crate::osr::host::run(config_path) {
-        eprintln!("Sabine OSR host failed: {error}");
+        crate::launch::bootstrap::show_failure("The application could not continue", &error);
         std::process::exit(1);
     }
     true

@@ -337,17 +337,21 @@ impl ApplicationHandler for OsrNativeHost {
         event_loop.set_control_flow(ControlFlow::Wait);
         let mut handoff = false;
         let mut exited = Vec::new();
-        self.children.retain_mut(|child| match child.try_wait() {
-            Ok(Some(status)) => {
-                if status.code() == Some(CEF_RESULT_CODE_NORMAL_EXIT_PROCESS_NOTIFIED) {
-                    handoff = true;
-                } else {
-                    exited.push(status);
+        self.children
+            .retain_mut(|(generation, child)| match child.try_wait() {
+                Ok(Some(status)) => {
+                    if *generation != self.connection_generation {
+                        return false;
+                    }
+                    if status.code() == Some(CEF_RESULT_CODE_NORMAL_EXIT_PROCESS_NOTIFIED) {
+                        handoff = true;
+                    } else {
+                        exited.push(status);
+                    }
+                    false
                 }
-                false
-            }
-            Ok(None) | Err(_) => true,
-        });
+                Ok(None) | Err(_) => true,
+            });
         if let Some(deadline) = self.closing_deadline {
             if Instant::now() >= deadline {
                 self.force_close(event_loop);
@@ -375,6 +379,9 @@ impl ApplicationHandler for OsrNativeHost {
                 }
                 self.begin_recovery();
             }
+        }
+        if self.drive_recovery(event_loop) {
+            return;
         }
         if self.drive_pending_suspend(event_loop) {
             return;
@@ -412,10 +419,8 @@ impl ApplicationHandler for OsrNativeHost {
                 Instant::now() + Duration::from_secs(HANDOFF_CONNECT_TIMEOUT_SECS)
             });
             if Instant::now() >= deadline {
-                eprintln!(
-                    "Sabine OSR host: profile handoff succeeded but primary CEF never connected within {HANDOFF_CONNECT_TIMEOUT_SECS}s"
-                );
-                event_loop.exit();
+                self.fail(format!("The shared browser did not connect within {HANDOFF_CONNECT_TIMEOUT_SECS} seconds."));
+                self.force_close(event_loop);
                 return;
             }
             event_loop.set_control_flow(ControlFlow::WaitUntil(

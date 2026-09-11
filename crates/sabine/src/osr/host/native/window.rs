@@ -91,7 +91,7 @@ impl OsrNativeHost {
         let window = match event_loop.create_window(attributes) {
             Ok(window) => Arc::<dyn WinitWindow>::from(window),
             Err(error) => {
-                eprintln!("failed to create Sabine OSR host window: {error}");
+                self.fail(format!("Could not create the application window: {error}"));
                 event_loop.exit();
                 return;
             }
@@ -102,7 +102,7 @@ impl OsrNativeHost {
             match pollster::block_on(GpuRenderer::new(window.clone(), self.config.transparent)) {
                 Ok(renderer) => renderer,
                 Err(error) => {
-                    eprintln!("failed to initialize Sabine OSR renderer: {error}");
+                    self.fail(format!("Could not initialize GPU rendering: {error}"));
                     event_loop.exit();
                     return;
                 }

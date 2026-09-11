@@ -120,6 +120,10 @@ bool SabineOsrHandler::OnTooltip(CefRefPtr<CefBrowser> browser,
 void SabineOsrHandler::OnAfterCreated(CefRefPtr<CefBrowser> browser) {
   CEF_REQUIRE_UI_THREAD();
   browsers_.push_back(browser);
+  if (closing_ || close_requested_) {
+    browser->GetHost()->CloseBrowser(true);
+    return;
+  }
   const bool primary_browser = !browser_;
   if (primary_browser) {
     browser_ = browser;
@@ -154,9 +158,7 @@ void SabineOsrHandler::OnAfterCreated(CefRefPtr<CefBrowser> browser) {
 
 bool SabineOsrHandler::DoClose(CefRefPtr<CefBrowser> browser) {
   CEF_REQUIRE_UI_THREAD();
-  if (browsers_.size() == 1) {
-    closing_ = true;
-  }
+  if (browser_ && browser_->IsSame(browser)) closing_ = true;
   return false;
 }
 
@@ -165,6 +167,9 @@ void SabineOsrHandler::OnBeforeClose(CefRefPtr<CefBrowser> browser) {
 #ifdef _WIN32
   sabine_osr::RetireAcceleratedD3d11Browser(browser->GetIdentifier());
 #endif
+  renderer_crashes_.erase(browser->GetIdentifier());
+  ime_frames_.erase(browser->GetIdentifier());
+  ime_surrounding_state_.erase(browser->GetIdentifier());
   text_input_modes_.erase(browser->GetIdentifier());
   ime_cursor_rects_.erase(browser->GetIdentifier());
   if (GuestView* guest = guests_.FindByBrowser(browser)) {
@@ -179,6 +184,7 @@ void SabineOsrHandler::OnBeforeClose(CefRefPtr<CefBrowser> browser) {
     for (const auto& id : ids) {
       DestroyGuest(id);
     }
+    browser_ = nullptr;
   }
   for (auto it = browsers_.begin(); it != browsers_.end(); ++it) {
     if ((*it)->IsSame(browser)) {

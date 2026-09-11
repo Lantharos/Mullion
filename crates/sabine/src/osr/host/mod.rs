@@ -10,6 +10,7 @@ mod native;
 mod paint;
 mod paint_accel;
 mod paint_upload;
+mod recovery;
 mod resize;
 mod socket;
 mod tooltip;
@@ -18,7 +19,7 @@ pub(in crate::osr) mod types;
 use std::path::PathBuf;
 use std::sync::mpsc;
 
-use winit::event_loop::EventLoop;
+use winit::event_loop::{EventLoop, run_on_demand::EventLoopExtRunOnDemand};
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{ActivationPolicy, EventLoopBuilderExtMacOS};
 
@@ -45,14 +46,16 @@ pub(crate) fn run(config_path: PathBuf) -> Result<(), String> {
     if config.skip_taskbar {
         event_loop_builder.with_activation_policy(ActivationPolicy::Accessory);
     }
-    let event_loop = event_loop_builder
+    let mut event_loop = event_loop_builder
         .build()
         .map_err(|error| error.to_string())?;
     let proxy = event_loop.create_proxy();
     let (sender, receiver) = mpsc::sync_channel(8);
+    let mut host = OsrNativeHost::new(config, sender, receiver, proxy);
     event_loop
-        .run_app(OsrNativeHost::new(config, sender, receiver, proxy))
-        .map_err(|error| error.to_string())
+        .run_app_on_demand(&mut host)
+        .map_err(|error| error.to_string())?;
+    host.failure.take().map_or(Ok(()), Err)
 }
 
 fn trace_host(config: &OsrHostConfig, stage: impl AsRef<str>) {

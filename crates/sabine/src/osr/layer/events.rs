@@ -445,6 +445,10 @@ impl OsrLayerHost {
                 self.main_load_ready = false;
                 self.begin_loading(crate::osr::host::types::LoadingKind::Opening, state);
             }
+            OsrMessage::FatalError(message) => {
+                sabine_runtime::report_error("osr", message);
+                return Some(ReturnData::RequestExit);
+            }
             OsrMessage::MainLoadReady => {
                 self.main_load_ready = true;
                 if self.main_frame.is_some() {

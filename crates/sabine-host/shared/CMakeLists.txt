@@ -49,6 +49,7 @@ set(SABINE_HOST_SOURCES
   osr/handler.h
   osr/bridge.cc
   osr/callbacks.cc
+  osr/recovery.cc
   osr/downloads.cc
   osr/drag.cc
   osr/guest/commands.cc

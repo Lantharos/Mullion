@@ -2,6 +2,8 @@
 #define SABINE_CEF_HOST_OSR_HANDLER_H_
 
 #include <cstdint>
+#include <chrono>
+#include <deque>
 #include <functional>
 #include <list>
 #include <map>
@@ -17,6 +19,7 @@
 #include "include/cef_display_handler.h"
 #include "include/cef_download_handler.h"
 #include "include/cef_render_handler.h"
+#include "include/cef_request_handler.h"
 #include "include/cef_request_context.h"
 #include "include/cef_values.h"
 
@@ -51,7 +54,8 @@ class SabineOsrHandler : public CefClient,
                        public CefDragHandler,
                        public CefLifeSpanHandler,
                        public CefLoadHandler,
-                       public CefRenderHandler {
+                       public CefRenderHandler,
+                       public CefRequestHandler {
  public:
   SabineOsrHandler(std::string endpoint,
                  std::string authentication_token,
@@ -74,6 +78,10 @@ class SabineOsrHandler : public CefClient,
   CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override { return this; }
   CefRefPtr<CefLoadHandler> GetLoadHandler() override { return this; }
   CefRefPtr<CefRenderHandler> GetRenderHandler() override { return this; }
+  CefRefPtr<CefRequestHandler> GetRequestHandler() override { return this; }
+  void OnRenderProcessTerminated(CefRefPtr<CefBrowser> browser,
+                                TerminationStatus status, int error_code,
+                                const CefString& error_string) override;
   bool OnProcessMessageReceived(CefRefPtr<CefBrowser> browser,
                                 CefRefPtr<CefFrame> frame,
                                 CefProcessId source_process,
@@ -277,6 +285,7 @@ class SabineOsrHandler : public CefClient,
       const std::string& partition);
   std::string NextGuestId();
 
+  std::map<int, std::deque<std::chrono::steady_clock::time_point>> renderer_crashes_;
   BrowserList browsers_;
   CefRefPtr<CefBrowser> browser_;
   std::string endpoint_;

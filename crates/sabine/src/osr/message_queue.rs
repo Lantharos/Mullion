@@ -191,7 +191,8 @@ fn message_retained_bytes(message: &OsrMessage) -> usize {
         OsrMessage::AccelFrame(frame) => {
             frame.coded_width as usize * frame.coded_height as usize * 4
         }
-        OsrMessage::GuestHidden(text)
+        OsrMessage::FatalError(text)
+        | OsrMessage::GuestHidden(text)
         | OsrMessage::Cursor(text)
         | OsrMessage::TooltipChanged(text)
         | OsrMessage::BridgeRequest(text) => text.capacity(),

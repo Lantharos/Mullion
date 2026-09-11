@@ -54,6 +54,7 @@ pub(super) const KIND_TOOLTIP_CHANGED: u32 = 33;
 pub(super) const KIND_IME_SURROUNDING_CHANGED: u32 = 34;
 pub(super) const KIND_MAXIMIZE_REQUESTED: u32 = 35;
 pub(super) const KIND_RESTORE_REQUESTED: u32 = 36;
+pub(super) const KIND_FATAL_ERROR: u32 = 37;
 pub(super) const BATCH_ENTRY_LEN: usize = 28;
 
 pub(crate) fn read_message(reader: &mut IpcStream) -> io::Result<Option<OsrMessage>> {
@@ -194,6 +195,10 @@ pub(crate) fn read_message(reader: &mut IpcStream) -> io::Result<Option<OsrMessa
         },
         KIND_MAIN_LOAD_STARTED => OsrMessage::MainLoadStarted,
         KIND_MAIN_LOAD_READY => OsrMessage::MainLoadReady,
+        KIND_FATAL_ERROR => OsrMessage::FatalError(
+            String::from_utf8(payload)
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?,
+        ),
         KIND_IME_STATE_CHANGED => OsrMessage::ImeStateChanged(width),
         KIND_IME_CURSOR_AREA_CHANGED => OsrMessage::ImeCursorAreaChanged {
             x,

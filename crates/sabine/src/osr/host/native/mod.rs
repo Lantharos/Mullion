@@ -2,7 +2,7 @@ mod window;
 
 use std::{
     cell::Cell,
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     io::BufRead,
     path::PathBuf,
     process::Child,
@@ -41,13 +41,17 @@ pub(super) struct OsrNativeHost {
     pub(super) window: Option<Arc<dyn WinitWindow>>,
     pub(super) renderer: Option<GpuRenderer>,
     pub(super) effect: Option<WindowEffect>,
-    pub(super) children: Vec<Child>,
+    pub(super) children: Vec<(u64, Child)>,
     pub(super) socket: Option<Arc<Mutex<IpcStream>>>,
     pub(super) socket_reader: Option<SocketReader>,
     pub(super) control_writer: Option<Arc<ControlWriter>>,
     pub(super) pending_messages: Option<(u64, Arc<crate::osr::message_queue::MessageQueue>)>,
     pub(super) connection_generation: u64,
     pub(super) awaiting_connection: bool,
+    pub(super) connection_deadline: Option<Instant>,
+    pub(super) recovery_deadline: Option<Instant>,
+    pub(super) recoveries: VecDeque<Instant>,
+    pub(super) failure: Option<String>,
     pub(super) surface_size: winit::dpi::PhysicalSize<u32>,
     pub(super) scale_factor: f64,
     pub(super) main_frame: Option<OsrFrame>,
@@ -133,6 +137,10 @@ impl OsrNativeHost {
             pending_messages: None,
             connection_generation: 0,
             awaiting_connection: false,
+            connection_deadline: None,
+            recovery_deadline: None,
+            recoveries: VecDeque::new(),
+            failure: None,
             surface_size,
             scale_factor: 1.0,
             main_frame: None,
@@ -179,7 +187,11 @@ impl OsrNativeHost {
     }
 
     pub(super) fn launch_child(&mut self) {
-        if self.closing_deadline.is_some() || self.socket.is_some() || self.awaiting_connection {
+        if self.failure.is_some()
+            || self.closing_deadline.is_some()
+            || self.socket.is_some()
+            || self.awaiting_connection
+        {
             return;
         }
         let Some(app_id) = self
@@ -189,20 +201,20 @@ impl OsrNativeHost {
             .map(str::trim)
             .filter(|value| !value.is_empty())
         else {
-            eprintln!("Sabine OSR host requires a non-empty app_id");
+            self.fail("Sabine OSR host requires a non-empty app_id".to_string());
             return;
         };
         let (endpoint, listener) = match crate::osr::transport::IpcEndpoint::bind(app_id) {
             Ok(connection) => connection,
             Err(error) => {
-                eprintln!("failed to bind OSR transport: {error}");
+                self.fail(format!("Could not bind OSR transport: {error}"));
                 return;
             }
         };
         let authentication_token = match crate::osr::transport::authentication_token() {
             Ok(token) => token,
             Err(error) => {
-                eprintln!("failed to secure OSR transport: {error}");
+                self.fail(format!("Could not secure OSR transport: {error}"));
                 return;
             }
         };
@@ -210,6 +222,7 @@ impl OsrNativeHost {
         self.connection_generation = self.connection_generation.wrapping_add(1);
         let generation = self.connection_generation;
         self.awaiting_connection = true;
+        self.connection_deadline = Some(Instant::now() + std::time::Duration::from_secs(30));
         self.main_load_ready = false;
         self.cef_handed_off = false;
         self.handoff_deadline = None;
@@ -236,7 +249,7 @@ impl OsrNativeHost {
             Err(error) => {
                 self.awaiting_connection = false;
                 endpoint.unlink();
-                eprintln!("failed to prepare Sabine OSR child: {error}");
+                self.fail(format!("Could not prepare the browser: {error}"));
                 return;
             }
         };
@@ -245,7 +258,7 @@ impl OsrNativeHost {
             Err(error) => {
                 self.awaiting_connection = false;
                 endpoint.unlink();
-                eprintln!("failed to launch CEF OSR child: {error}");
+                self.fail(format!("Could not launch the browser: {error}"));
                 return;
             }
         };
@@ -260,12 +273,12 @@ impl OsrNativeHost {
         ) {
             Ok(reader) => Some(reader),
             Err(error) => {
-                eprintln!("failed to start OSR transport: {error}");
+                self.fail(format!("Could not start OSR transport: {error}"));
                 self.awaiting_connection = false;
                 None
             }
         };
-        self.children.push(child);
+        self.children.push((generation, child));
     }
 
     pub(super) fn content_size_for_cef(&self) -> (u32, u32, f64) {
@@ -375,7 +388,7 @@ impl OsrNativeHost {
     }
 
     pub(super) fn force_close(&mut self, event_loop: &dyn ActiveEventLoop) {
-        for child in &mut self.children {
+        for (_, child) in &mut self.children {
             let _ = child.try_wait();
         }
         if let Some(socket) = &self.socket

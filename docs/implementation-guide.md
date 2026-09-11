@@ -127,6 +127,12 @@ that cannot connect to its native window closes instead of remaining invisible.
 Each native connection owns its socket reader and bounded paint queue. Closing or hibernating
 a window cancels blocked reads and queue writes, then removes its endpoint. Native timers
 return to an idle wait after firing; hidden windows remain suspended across focus changes.
+A failed browser connection gets at most three recovery attempts in 60 seconds, with increasing
+delays. Initial connection is limited to 30 seconds; profile handoff remains limited to 15 seconds.
+Terminal failures produce persistent diagnostics, a native error notice, and a nonzero exit.
+Renderer crashes reload the affected browser at most three times in 60 seconds. The fourth
+closes the failed browser; a main-page failure becomes a native error. Apps can observe
+`runtime.renderer-crashed` events with `guestId`, `code`, and `recovering` fields.
 Windows owns each OSR host through a kill-on-close job, requests graceful native-window
 closure, and bounds the wait before terminating a stalled host. CEF children can leave
 that job so the shared browser process remains available to sibling windows.
