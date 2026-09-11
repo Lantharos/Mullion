@@ -427,3 +427,17 @@ the app's bridge policy.
 Packaged apps use an installed host and never invoke a compiler on the user's machine. Development
 builds and the packaging CLI can build a host from the CEF SDK. Compatible newer shared hosts are
 selected by their native protocol rather than requiring an identical app framework version.
+
+### Windows setup wizard
+
+The `exe` bundle target generates an NSIS wizard. The installer runs the app with
+`--sabine-install` after copying its files. This prepares the service and Chromium runtime,
+checks native host compatibility, and registers the app without launching its window. Progress
+and failures go to the installer details pane; failure returns a nonzero exit code.
+`--sabine-uninstall` removes the registration before the uninstaller deletes packaged files.
+These modes are handled by `SabineWindow::main` and its process variants.
+
+The default destination is `%LOCALAPPDATA%\Programs\<app-id>`. Installation and shortcuts belong
+to the current user. The uninstaller deletes the files included by the package and leaves other
+files in place. Shared runtimes and the service remain available to other Sabine apps.
+Offline bundles supply the same setup path with embedded dependencies.

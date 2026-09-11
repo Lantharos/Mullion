@@ -16,6 +16,10 @@ jobs:
             target: msi
             update_target: windows-x86_64-msi
             extension: .msi
+          - os: windows-latest
+            target: exe
+            update_target: windows-x86_64-exe
+            extension: .exe
           - os: macos-15
             target: dmg
             update_target: macos-aarch64-dmg
@@ -57,12 +61,22 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           dotnet tool install --global wix --version 6.0.2
-          choco install imagemagick --yes --no-progress
+          choco install imagemagick nsis --yes --no-progress
+          "${env:ProgramFiles(x86)}\NSIS" >> $env:GITHUB_PATH
           $magick = Get-ChildItem "$env:ProgramFiles\ImageMagick-*\magick.exe" | Select-Object -First 1
           if ($null -eq $magick) {
             throw "ImageMagick installation did not provide magick.exe"
           }
           $magick.DirectoryName >> $env:GITHUB_PATH
+      - name: Build offline Windows setup dependencies
+        if: matrix.target == 'exe'
+        shell: pwsh
+        run: |
+          cargo build --release --workspace
+          if ($LASTEXITCODE -ne 0) { throw "workspace build failed" }
+          $hostPath = cargo run --release -p sabine-cli -- runtime prepare | Select-Object -Last 1
+          if ($LASTEXITCODE -ne 0) { throw "native host preparation failed" }
+          Copy-Item $hostPath target/release/sabine-host.exe
       - name: Generate real app and signing key
         shell: pwsh
         run: |
@@ -82,7 +96,10 @@ jobs:
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
         run: |
-          cargo run --release -p sabine-cli -- bundle release-probe --target "${{ matrix.target }}" --release
+          $offline = @()
+          if ('${{ matrix.target }}' -eq 'exe') { $offline = @('--offline') }
+          cargo run --release -p sabine-cli -- bundle release-probe --target "${{ matrix.target }}" --release @offline
+          if ($LASTEXITCODE -ne 0) { throw "package build failed" }
           $artifacts = @(Get-ChildItem dist/artifacts -File)
           if ($artifacts.Count -ne 1 -or $artifacts[0].Extension -cne "${{ matrix.extension }}") {
             throw "expected one ${{ matrix.extension }} artifact, found $($artifacts.Name -join ', ')"
@@ -93,8 +110,8 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($manifest.signature)) {
             throw "release manifest signature is missing"
           }
-      - name: Install and launch Windows package
-        if: runner.os == 'Windows'
+      - name: Install and launch Windows MSI
+        if: matrix.target == 'msi'
         shell: pwsh
         run: |
           $msi = @(Get-ChildItem dist/artifacts -Filter *.msi -File)
@@ -136,6 +153,48 @@ jobs:
             Stop-Process -Id $app.Id -Force
           } finally {
             Start-Process msiexec.exe -ArgumentList @('/x', $msi[0].FullName, '/qn', '/norestart') -Wait
+          }
+      - name: Install, repair, launch, and uninstall Windows setup
+        if: matrix.target == 'exe'
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist/artifacts -Filter *.exe -File | Select-Object -First 1
+          $appId = 'dev.sabine.release-probe'
+          $appDir = Join-Path $env:LOCALAPPDATA "Programs/$appId"
+          $registry = Join-Path $env:LOCALAPPDATA 'Sabine/apps.json'
+          $logs = Join-Path $env:LOCALAPPDATA 'sabine/logs/installer.jsonl'
+          $app = $null
+          try {
+            foreach ($operation in @('install', 'repair')) {
+              $process = Start-Process $setup.FullName -ArgumentList '/S' -Wait -PassThru
+              if ($process.ExitCode -ne 0) {
+                if (Test-Path $logs) { Get-Content $logs -Tail 30 }
+                throw "Setup $operation failed with code $($process.ExitCode)"
+              }
+              $registered = (Get-Content $registry -Raw | ConvertFrom-Json).apps
+              if (-not $registered.PSObject.Properties[$appId]) {
+                throw "Setup finished without registering the application"
+              }
+            }
+            $app = Start-Process (Join-Path $appDir 'release-probe.exe') -PassThru
+            Start-Sleep -Seconds 8
+            if ($app.HasExited) { throw "Installed application exited with code $($app.ExitCode)" }
+          } finally {
+            if ($null -ne $app -and -not $app.HasExited) { Stop-Process -Id $app.Id -Force }
+            $uninstaller = Join-Path $appDir 'Uninstall.exe'
+            if (Test-Path $uninstaller) {
+              $process = Start-Process $uninstaller -ArgumentList '/S' -Wait -PassThru
+              if ($process.ExitCode -ne 0) { throw "Uninstall failed with code $($process.ExitCode)" }
+              for ($attempt = 0; $attempt -lt 100 -and (Test-Path $uninstaller); $attempt++) {
+                Start-Sleep -Milliseconds 100
+              }
+              if (Test-Path $uninstaller) { throw "Uninstaller did not remove the package" }
+              $registered = (Get-Content $registry -Raw | ConvertFrom-Json).apps
+              if ($registered.PSObject.Properties[$appId]) { throw "Uninstall left the app registered" }
+              if (-not (Test-Path (Join-Path $env:LOCALAPPDATA 'Sabine/bin/current.json'))) {
+                throw "App uninstall removed the shared Sabine installation"
+              }
+            }
           }
       - uses: actions/upload-artifact@v7
         with:

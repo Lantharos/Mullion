@@ -274,32 +274,6 @@ fn deterministic_guid(value: &str) -> String {
     )
 }
 
-pub(super) fn nsis_script(
-    app: &BundleApp,
-    staged_app_dir: &str,
-    executable: &str,
-    output: &str,
-    icon: Option<&str>,
-) -> String {
-    let installer_icon = icon
-        .map(|icon| format!("Icon \"{icon}\"\n"))
-        .unwrap_or_default();
-    let shortcut_icon = icon
-        .map(|_| " \"\" \"$INSTDIR\\resources\\windows-app.ico\"")
-        .unwrap_or_default();
-    format!(
-        "Name \"{}\"\nOutFile \"{}\"\n{}InstallDir \"$PROGRAMFILES64\\{}\"\nSection\nSetOutPath \"$INSTDIR\"\nFile /r \"{}/*\"\nCreateShortcut \"$DESKTOP\\{}.lnk\" \"$INSTDIR\\{}\"{}\nSectionEnd\n",
-        app.name,
-        output,
-        installer_icon,
-        app.name,
-        staged_app_dir,
-        app.name,
-        executable,
-        shortcut_icon
-    )
-}
-
 pub(super) fn shell_script(lines: &[&str]) -> String {
     format!("#!/bin/sh\nset -e\n{}\n", lines.join("\n"))
 }

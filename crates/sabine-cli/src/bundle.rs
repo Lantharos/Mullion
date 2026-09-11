@@ -2,6 +2,7 @@ mod config;
 mod metadata;
 mod package;
 mod stage;
+mod windows;
 
 use std::{
     path::PathBuf,

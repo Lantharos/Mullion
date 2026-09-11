@@ -62,6 +62,11 @@ impl SabineWindow {
         let window = match Self::new().with_framework_config().and_then(build) {
             Ok(window) => window,
             Err(error) => {
+                if crate::launch::bootstrap::installer::requested(&args) {
+                    sabine_runtime::report_error("installer", &error);
+                    println!("Could not configure the application: {error}");
+                    std::process::exit(1);
+                }
                 crate::launch::bootstrap::show_failure(
                     "Could not configure the application",
                     &error,
@@ -69,6 +74,9 @@ impl SabineWindow {
                 std::process::exit(1);
             }
         };
+        if crate::launch::bootstrap::installer::requested(&args) {
+            crate::launch::bootstrap::installer::run(&window.config, &args);
+        }
         match window.launch() {
             Ok(mut process) => {
                 launched(&mut process);

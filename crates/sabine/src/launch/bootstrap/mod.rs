@@ -1,3 +1,4 @@
+pub(crate) mod installer;
 mod ui;
 
 use crate::window::config::SabineWindowConfig;

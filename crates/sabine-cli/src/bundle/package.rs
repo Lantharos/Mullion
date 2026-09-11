@@ -7,8 +7,9 @@ use std::{
 use super::{
     BundleFormat,
     config::BundleApp,
-    metadata::{deb_control, nsis_script, rpm_spec, shell_script, wix_source},
+    metadata::{deb_control, rpm_spec, shell_script, wix_source},
     stage::StagedBundle,
+    windows::nsis_script,
 };
 use crate::commands::command_exists;
 
@@ -287,16 +288,17 @@ fn package_exe(
         &script,
         nsis_script(
             app,
-            &staged.app_dir.display().to_string(),
+            &staged.app_dir,
             &staged.executable,
             &artifact.display().to_string(),
             icon.as_deref(),
-        ),
+        )?,
     )
     .map_err(|error| error.to_string())?;
     if command_exists("makensis") {
         ensure_parent(&artifact)?;
         run(Command::new("makensis")
+            .arg("-WX")
             .current_dir(&staged.root)
             .arg(&script))?;
         if artifact.is_file() {
