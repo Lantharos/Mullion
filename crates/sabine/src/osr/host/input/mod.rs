@@ -347,6 +347,14 @@ impl ApplicationHandler for OsrNativeHost {
             }
             Ok(None) | Err(_) => true,
         });
+        if let Some(deadline) = self.closing_deadline {
+            if Instant::now() >= deadline {
+                self.force_close(event_loop);
+                return;
+            }
+            event_loop.set_control_flow(ControlFlow::WaitUntil(deadline));
+            return;
+        }
         if handoff {
             self.cef_handed_off = true;
             self.handoff_deadline =
@@ -366,14 +374,6 @@ impl ApplicationHandler for OsrNativeHost {
                 }
                 self.begin_recovery();
             }
-        }
-        if let Some(deadline) = self.closing_deadline {
-            if Instant::now() >= deadline {
-                self.force_close(event_loop);
-                return;
-            }
-            event_loop.set_control_flow(ControlFlow::WaitUntil(deadline));
-            return;
         }
         if self.drive_pending_suspend(event_loop) {
             return;

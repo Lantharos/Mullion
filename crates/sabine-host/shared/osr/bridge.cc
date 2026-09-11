@@ -183,12 +183,9 @@ void SabineOsrHandler::RequestNativeClose() {
 
 void SabineOsrHandler::CloseFromNativeDisconnect() {
   CEF_REQUIRE_UI_THREAD();
-  if (close_requested_) {
-    return;
-  }
   close_requested_ = true;
   if (browser_) {
-    browser_->GetHost()->CloseBrowser(false);
+    browser_->GetHost()->CloseBrowser(true);
   }
 }
 

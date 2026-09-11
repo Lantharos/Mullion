@@ -141,6 +141,9 @@ impl OsrNativeHost {
     }
 
     pub(super) fn begin_recovery(&mut self) {
+        if self.closing_deadline.is_some() {
+            return;
+        }
         if self.lifecycle_state != LifecycleState::Active {
             self.lifecycle_state = LifecycleState::Hibernated;
             self.main_frame = None;

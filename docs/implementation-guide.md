@@ -121,6 +121,9 @@ CEF command line (path is not secret; this survives process-singleton handoff). 
 remains an optional fallback. Stale-socket cleanup uses a same-UID health-probe line that listeners
 recognize separately from authenticated CEF connections. Child OSR/CEF processes set
 `PR_SET_PDEATHSIG` on Linux so OSR hosts do not outlive a crashed parent.
+Closing a window stops browser recovery immediately. Transport disconnect forces closure of
+that window's browser, while other windows sharing the CEF process remain alive. A browser
+that cannot connect to its native window closes instead of remaining invisible.
 Windows owns each OSR host through a kill-on-close job, requests graceful native-window
 closure, and bounds the wait before terminating a stalled host. CEF children can leave
 that job so the shared browser process remains available to sibling windows.

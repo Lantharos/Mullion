@@ -14,6 +14,7 @@
 #include "include/cef_process_message.h"
 #include "include/wrapper/cef_helpers.h"
 #include "osr/handler.h"
+#include "osr/utilities.h"
 
 namespace {
 const char kImeStateScript[] = R"JS(
@@ -140,7 +141,10 @@ std::string BridgeInstallScript(const std::vector<std::string>& commands) {
 }
 
 void CreateBrowser(CefRefPtr<CefCommandLine> command_line) {
-  CreateSabineOsrBrowser(command_line);
+  if (!CreateSabineOsrBrowser(command_line)) {
+    std::fprintf(stderr, "Sabine OSR: browser creation failed\n");
+    if (!sabine_osr::HasRegisteredHandlers()) CefQuitMessageLoop();
+  }
 }
 }  // namespace
 

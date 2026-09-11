@@ -115,7 +115,7 @@ cef_color_t SwitchColor(CefRefPtr<CefCommandLine> command_line,
   return static_cast<cef_color_t>(parsed);
 }
 
-void CreateSabineOsrBrowser(CefRefPtr<CefCommandLine> command_line) {
+bool CreateSabineOsrBrowser(CefRefPtr<CefCommandLine> command_line) {
   const std::string url_value = command_line->GetSwitchValue("url");
   const std::string url =
       url_value.empty() ? "about:blank" : std::string(url_value);
@@ -160,13 +160,14 @@ void CreateSabineOsrBrowser(CefRefPtr<CefCommandLine> command_line) {
 	    std::cerr << "Sabine OSR: missing authentication token "
 	                 "(expected --sabine-osr-token-file or SABINE_OSR_TOKEN)"
 	              << std::endl;
+      return false;
 	  }
 
 	  auto policy_value = CefParseJSON(command_line->GetSwitchValue("sabine-bridge-policy"), JSON_PARSER_RFC);
   auto policy = policy_value ? policy_value->GetDictionary() : nullptr;
   if (!policy) {
     std::cerr << "Sabine OSR: missing bridge policy" << std::endl;
-    return;
+    return false;
   }
   CefBrowserSettings browser_settings;
 	  browser_settings.windowless_frame_rate = active_frame_rate;
@@ -187,6 +188,6 @@ void CreateSabineOsrBrowser(CefRefPtr<CefCommandLine> command_line) {
 	      policy, command_line->HasSwitch("sabine-dev-mode"),
 	      command_line->HasSwitch("sabine-transparent"), active_frame_rate,
 	      background_frame_rate));
-  CefBrowserHost::CreateBrowser(window_info, handler, url, browser_settings,
-                                policy, nullptr);
+  return CefBrowserHost::CreateBrowser(window_info, handler, url, browser_settings,
+                                       policy, nullptr);
 }

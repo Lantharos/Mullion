@@ -177,7 +177,7 @@ impl OsrNativeHost {
     }
 
     pub(super) fn launch_child(&mut self) {
-        if self.socket.is_some() || self.awaiting_connection {
+        if self.closing_deadline.is_some() || self.socket.is_some() || self.awaiting_connection {
             return;
         }
         let Some(app_id) = self
@@ -359,20 +359,19 @@ impl OsrNativeHost {
         }
         self.send_control("close\n");
         self.closing_deadline = Some(Instant::now() + super::types::CLOSE_GRACE);
-        // Local CEF child owns the process — exit immediately if it is already
-        // gone. Handed-off / shared-singleton windows still need the grace
-        // period so CloseBrowser can finish without killing sibling windows.
-        if self.children.is_empty() && !self.cef_handed_off {
-            event_loop.exit();
+        if self.children.is_empty() && self.socket.is_none() && !self.awaiting_connection {
+            self.force_close(event_loop);
         }
     }
 
     pub(super) fn force_close(&mut self, event_loop: &dyn ActiveEventLoop) {
-        // Do not kill the CEF child here. Multi-window apps share one CEF
-        // process via profile singleton handoff; killing it would close every
-        // window. CloseBrowser / socket-EOF teardown owns CEF lifetime.
         for child in &mut self.children {
             let _ = child.try_wait();
+        }
+        if let Some(socket) = &self.socket
+            && let Ok(socket) = socket.lock()
+        {
+            let _ = socket.shutdown(std::net::Shutdown::Both);
         }
         self.control_writer = None;
         self.pending_messages = None;

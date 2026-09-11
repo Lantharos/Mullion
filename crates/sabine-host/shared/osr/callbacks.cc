@@ -143,6 +143,7 @@ void SabineOsrHandler::OnAfterCreated(CefRefPtr<CefBrowser> browser) {
   if (!ConnectSocket()) {
     std::fprintf(stderr, "Sabine OSR: failed to connect native host\n");
     std::fflush(stderr);
+    host->CloseBrowser(true);
     return;
   }
   StartCommandReader();

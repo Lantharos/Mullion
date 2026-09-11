@@ -329,6 +329,6 @@ class SabineOsrHandler : public CefClient,
   IMPLEMENT_REFCOUNTING(SabineOsrHandler);
 };
 
-void CreateSabineOsrBrowser(CefRefPtr<CefCommandLine> command_line);
+bool CreateSabineOsrBrowser(CefRefPtr<CefCommandLine> command_line);
 
 #endif

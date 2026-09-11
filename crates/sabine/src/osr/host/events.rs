@@ -71,6 +71,11 @@ impl OsrNativeHost {
                     message_budget_used = true;
                 }
                 super::types::OsrHostEvent::Connected(_, stream) => {
+                    if self.closing_deadline.is_some() {
+                        let _ = stream.shutdown(std::net::Shutdown::Both);
+                        self.awaiting_connection = false;
+                        continue;
+                    }
                     let writer_stream = match stream.try_clone() {
                         Ok(writer) => writer,
                         Err(error) => {
