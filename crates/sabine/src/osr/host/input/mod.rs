@@ -334,6 +334,7 @@ impl ApplicationHandler for OsrNativeHost {
     }
 
     fn about_to_wait(&mut self, event_loop: &dyn ActiveEventLoop) {
+        event_loop.set_control_flow(ControlFlow::Wait);
         let mut handoff = false;
         let mut exited = Vec::new();
         self.children.retain_mut(|child| match child.try_wait() {
@@ -398,6 +399,9 @@ impl ApplicationHandler for OsrNativeHost {
             }
             if Instant::now() >= deadline {
                 self.begin_hibernate("idle");
+                if let Some(deadline) = self.hibernate_commit_deadline {
+                    event_loop.set_control_flow(ControlFlow::WaitUntil(deadline));
+                }
                 return;
             }
             event_loop.set_control_flow(ControlFlow::WaitUntil(deadline));

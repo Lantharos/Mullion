@@ -21,6 +21,7 @@ struct MessageQueueState {
     messages: VecDeque<OsrMessage>,
     wake_queued: bool,
     retained_bytes: usize,
+    closed: bool,
 }
 
 impl MessageQueue {
@@ -35,6 +36,9 @@ impl MessageQueue {
         let Ok(mut state) = self.state.lock() else {
             return false;
         };
+        if state.closed {
+            return false;
+        }
         let available = MAX_QUEUED_BYTES.saturating_sub(state.retained_bytes);
         let message = match message {
             OsrMessage::PaintBatch(incoming) => {
@@ -75,10 +79,23 @@ impl MessageQueue {
                 return false;
             };
             state = next;
+            if state.closed {
+                return false;
+            }
         }
         state.retained_bytes += bytes;
         state.messages.push_back(message);
         queue_wake(&mut state)
+    }
+
+    pub(super) fn close(&self) {
+        if let Ok(mut state) = self.state.lock() {
+            state.closed = true;
+            state.messages.clear();
+            state.retained_bytes = 0;
+            state.wake_queued = false;
+        }
+        self.space_available.notify_all();
     }
 
     pub(super) fn drain_budgeted(&self) -> (VecDeque<OsrMessage>, bool) {

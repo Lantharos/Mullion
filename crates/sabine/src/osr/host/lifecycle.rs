@@ -55,7 +55,8 @@ impl OsrNativeHost {
     }
 
     fn should_suspend(&self) -> bool {
-        (self.occluded && self.config.lifecycle.suspend_on_occluded)
+        !self.config.visible
+            || (self.occluded && self.config.lifecycle.suspend_on_occluded)
             || (!self.focused && self.config.lifecycle.suspend_on_blur)
     }
 
@@ -184,6 +185,7 @@ impl OsrNativeHost {
         {
             let _ = socket.shutdown(std::net::Shutdown::Both);
         }
+        self.socket_reader = None;
         self.control_writer = None;
         self.pending_messages = None;
         self.socket = None;

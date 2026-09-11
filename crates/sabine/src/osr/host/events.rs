@@ -321,6 +321,7 @@ impl OsrNativeHost {
                     self.send_control(&line);
                 }
                 super::types::OsrHostEvent::Disconnected(_) => {
+                    self.socket_reader = None;
                     self.control_writer = None;
                     self.pending_messages = None;
                     self.socket = None;

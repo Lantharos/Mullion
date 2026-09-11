@@ -27,7 +27,7 @@ use crate::{SabineWindowChrome, osr};
 use sabine_platform::WindowEffect;
 
 use super::config::OsrHostConfig;
-use super::socket::start_socket_reader;
+use super::socket::{SocketReader, start_socket_reader};
 use super::types::{
     ClickMemory, LifecycleState, MouseButtons, OsrHostEvent, OverlayLayer, PendingResizePaint,
     TitlebarControl, uses_sabine_chrome,
@@ -43,6 +43,7 @@ pub(super) struct OsrNativeHost {
     pub(super) effect: Option<WindowEffect>,
     pub(super) children: Vec<Child>,
     pub(super) socket: Option<Arc<Mutex<IpcStream>>>,
+    pub(super) socket_reader: Option<SocketReader>,
     pub(super) control_writer: Option<Arc<ControlWriter>>,
     pub(super) pending_messages: Option<(u64, Arc<crate::osr::message_queue::MessageQueue>)>,
     pub(super) connection_generation: u64,
@@ -127,6 +128,7 @@ impl OsrNativeHost {
             effect: None,
             children: Vec::new(),
             socket: None,
+            socket_reader: None,
             control_writer: None,
             pending_messages: None,
             connection_generation: 0,
@@ -204,6 +206,7 @@ impl OsrNativeHost {
                 return;
             }
         };
+        self.socket_reader = None;
         self.connection_generation = self.connection_generation.wrapping_add(1);
         let generation = self.connection_generation;
         self.awaiting_connection = true;
@@ -247,14 +250,21 @@ impl OsrNativeHost {
             }
         };
         sabine_runtime::capture_diagnostics(&mut child, "cef");
-        start_socket_reader(
+        self.socket_reader = match start_socket_reader(
             generation,
             listener,
             endpoint,
             authentication_token,
             self.sender.clone(),
             self.proxy.clone(),
-        );
+        ) {
+            Ok(reader) => Some(reader),
+            Err(error) => {
+                eprintln!("failed to start OSR transport: {error}");
+                self.awaiting_connection = false;
+                None
+            }
+        };
         self.children.push(child);
     }
 
@@ -373,6 +383,7 @@ impl OsrNativeHost {
         {
             let _ = socket.shutdown(std::net::Shutdown::Both);
         }
+        self.socket_reader = None;
         self.control_writer = None;
         self.pending_messages = None;
         self.socket = None;

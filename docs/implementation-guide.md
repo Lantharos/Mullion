@@ -124,6 +124,9 @@ recognize separately from authenticated CEF connections. Child OSR/CEF processes
 Closing a window stops browser recovery immediately. Transport disconnect forces closure of
 that window's browser, while other windows sharing the CEF process remain alive. A browser
 that cannot connect to its native window closes instead of remaining invisible.
+Each native connection owns its socket reader and bounded paint queue. Closing or hibernating
+a window cancels blocked reads and queue writes, then removes its endpoint. Native timers
+return to an idle wait after firing; hidden windows remain suspended across focus changes.
 Windows owns each OSR host through a kill-on-close job, requests graceful native-window
 closure, and bounds the wait before terminating a stalled host. CEF children can leave
 that job so the shared browser process remains available to sibling windows.
