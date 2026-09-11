@@ -1,3 +1,4 @@
+mod archive;
 mod assets;
 mod detect;
 mod diagnostics;

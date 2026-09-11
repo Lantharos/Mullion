@@ -76,9 +76,8 @@ pub fn ensure_host(runtime_dir: &Path) -> Result<PathBuf, String> {
     .collect::<Vec<_>>();
     if !missing.is_empty() {
         return Err(format!(
-            "CEF runtime at {} is not a complete standard distribution (missing {}). \
-Reinstall with `cargo run -p sabine-cli -- runtime install` (or delete that folder and relaunch). \
-On Windows, a partial extract often means Git's GNU tar mishandled the path — use the OS `tar`.",
+            "CEF runtime at {} does not contain the build SDK (missing {}). \
+Use a Minimal or Standard CEF SDK to compile sabine-host; packaged apps should use their installed prebuilt host.",
             runtime_dir.display(),
             missing.join(", ")
         ));

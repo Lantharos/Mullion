@@ -252,10 +252,16 @@ plan -> lock -> download -> SHA-1 verify -> extract -> atomic version install ->
 
 The Spotify CEF index supplies archive metadata and checksums. Runtime versions are immutable
 directories, allowing existing apps to finish on an older version while the service installs a newer
-one. Runtime and CEF-host builds have independent stale-aware locks. Detection validates the exact
-package and current platform: a Standard runtime requires its SDK tree, the platform CEF binary,
-`icudtl.dat`, `resources.pak`, and at least one locale pack. Partial extraction directories are never
-adopted or reused.
+one. Runtime and CEF-host builds have independent locks. Downloads use CEF's Minimal distribution,
+which retains the build SDK while omitting Debug libraries and sample applications. Consumer runtime
+detection requires the platform CEF binary, `icudtl.dat`, `resources.pak`, and at least one locale pack;
+headers and CMake files are required only when compiling the host.
+
+Runtime extraction runs in process and rejects unsafe paths, links leaving the version directory,
+and special device entries. Extracted assets are validated before replacing an incomplete runtime,
+and a runtime leased by a running app cannot be repaired in place. Offline bundles contain only
+release binaries, resources, version metadata, and licensing files, preserving framework symlinks.
+Build offline bundles on their target OS so the embedded runtime and service match the application.
 
 `sabine-service` owns the machine/user-level catalog. Its registry writes use a temporary file,
 `sync_all`, and atomic rename. Re-registering an app preserves its original registration timestamp.

@@ -53,5 +53,5 @@ pub fn bundled_runtime_path(app_dir: &Path) -> PathBuf {
 }
 
 pub fn runtime_version_path(version: &str) -> PathBuf {
-    user_runtime_path().join(format!("{version}-standard"))
+    user_runtime_path().join(format!("{version}-minimal"))
 }

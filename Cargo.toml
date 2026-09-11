@@ -41,6 +41,8 @@ sabine = { path = "crates/sabine", version = "0.22.0" }
 sabine-service = { path = "crates/sabine-service", version = "0.22.0" }
 
 ashpd = { version = "0.13.13", features = ["global_shortcuts"] }
+bzip2 = "0.6.1"
+tar = { version = "0.4.46", default-features = false }
 bytemuck = { version = "1.25.2", features = ["derive"] }
 crossbeam-channel = "0.5.16"
 ctrlc = "3.5.2"
@@ -81,3 +83,6 @@ x11rb = "0.14.0"
 dpi = { git = "https://github.com/rust-windowing/winit", rev = "42366231b0d92480a933339bd5eaa7fba8106f42" }
 winit-common = { git = "https://github.com/rust-windowing/winit", rev = "42366231b0d92480a933339bd5eaa7fba8106f42" }
 winit-core = { git = "https://github.com/rust-windowing/winit", rev = "42366231b0d92480a933339bd5eaa7fba8106f42" }
+
+[profile.dev.package.libbz2-rs-sys]
+opt-level = 3

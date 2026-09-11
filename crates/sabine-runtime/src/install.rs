@@ -142,7 +142,19 @@ fn install_user_runtime_inner(
     let extracted = first_extracted_runtime_dir(&work_dir).ok_or_else(|| {
         RuntimeError::InstallationFailed("download did not contain a runtime directory".to_string())
     })?;
+    std::fs::write(extracted.join(".sabine-version"), &plan.version)?;
     crate::prepare_runtime_assets(&extracted)?;
+    if !runtime_is_valid(&extracted) {
+        return Err(RuntimeError::InstallationFailed(format!(
+            "extracted CEF archive at {} is missing its platform binary, ICU data, resource pack, or locales",
+            extracted.display()
+        )));
+    }
+    if plan.install_dir.exists() && runtime_is_leased(&plan.install_dir)? {
+        return Err(RuntimeError::InstallationFailed(
+            "Close applications using this runtime before repairing it".to_string(),
+        ));
+    }
     if plan.install_dir.exists() {
         progress(RuntimeInstallProgress::new(
             RuntimeInstallStep::RemovingOldRuntime,
@@ -157,20 +169,6 @@ fn install_user_runtime_inner(
         "Installing runtime",
     ));
     std::fs::rename(&extracted, &plan.install_dir)?;
-    std::fs::write(plan.install_dir.join(".sabine-version"), &plan.version)?;
-    if !runtime_is_valid(&plan.install_dir) {
-        let path = plan.install_dir.clone();
-        let _ = std::fs::remove_dir_all(&path);
-        let _ = std::fs::remove_dir_all(&work_dir);
-        return Err(RuntimeError::InstallationFailed(format!(
-            "extracted CEF archive at {} is missing the required Standard runtime layout. \
-             The Standard archive requires cmake/, include/cef_version.h, libcef_dll/, \
-             Release/libcef.*, and runtime resources. \
-             On Windows, ensure `tar` is the OS/bsdtar build — Git's GNU tar \
-             mishandles drive-letter extract paths.",
-            path.display(),
-        )));
-    }
     let _ = std::fs::remove_dir_all(&work_dir);
     progress(RuntimeInstallProgress::new(
         RuntimeInstallStep::Complete,

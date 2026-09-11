@@ -1,17 +1,7 @@
 use std::path::{Path, PathBuf};
 
-pub(crate) fn runtime_is_standard(runtime_dir: &Path) -> bool {
-    standard_sdk_present(runtime_dir)
-}
-
-/// Headers + CMake modules needed to build `sabine-host` against a Standard CEF tree.
-pub(crate) fn standard_sdk_present(runtime_dir: &Path) -> bool {
-    runtime_dir.join("cmake").is_dir()
-        && runtime_dir.join("include").is_dir()
-        && runtime_dir.join("libcef_dll").is_dir()
-        && runtime_dir.join("include").join("cef_version.h").is_file()
-        && has_libcef_binary(runtime_dir)
-        && runtime_resources_present(runtime_dir)
+pub(crate) fn runtime_assets_present(runtime_dir: &Path) -> bool {
+    has_libcef_binary(runtime_dir) && runtime_resources_present(runtime_dir)
 }
 
 fn runtime_resources_present(runtime_dir: &Path) -> bool {
@@ -84,7 +74,7 @@ fn locales_present(resource_root: &Path) -> bool {
 }
 
 pub(crate) fn runtime_is_valid(runtime_dir: &Path) -> bool {
-    !runtime_dir.join(".sabine-unusable").exists() && runtime_is_standard(runtime_dir)
+    !runtime_dir.join(".sabine-unusable").exists() && runtime_assets_present(runtime_dir)
 }
 
 #[cfg(test)]

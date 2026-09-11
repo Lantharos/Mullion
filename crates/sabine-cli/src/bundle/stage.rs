@@ -1,3 +1,5 @@
+mod offline;
+
 use std::{
     fs, io,
     path::{Path, PathBuf},
@@ -28,6 +30,12 @@ pub(super) fn stage_bundle(
     out: &Path,
     offline: bool,
 ) -> Result<StagedBundle, String> {
+    if offline
+        && build_target_for_format(format)
+            .is_some_and(|target| target.as_str() != std::env::consts::OS)
+    {
+        return Err("Offline bundles must be built on their target operating system so the runtime and service match the application".to_string());
+    }
     let executable = executable_name(app, format);
     let root = out.join(format.as_str()).join(sanitize_path(&app.id));
     if root.exists() {
@@ -52,65 +60,9 @@ pub(super) fn stage_bundle(
         executable,
     };
     if offline {
-        stage_offline_runtime(format, &staged)?;
+        offline::stage_offline_runtime(format, &staged)?;
     }
     Ok(staged)
-}
-
-fn stage_offline_runtime(format: BundleFormat, staged: &StagedBundle) -> Result<(), String> {
-    let runtime = sabine_runtime::ensure_runtime(&sabine_runtime::RuntimeConfig::default())
-        .map_err(|error| format!("could not prepare offline CEF runtime: {error}"))?;
-    let host = sabine_host::ensure_host(runtime.location.path())?;
-    let service = sabine_service::ensure_service_executable(|_| {})
-        .map_err(|error| format!("could not prepare offline Sabine service: {error}"))?;
-    let daemon = sabine_service::service_daemon_path(&service);
-    let (binary_dir, manifest_dir) = match format {
-        BundleFormat::Macos | BundleFormat::Dmg => (
-            staged.app_dir.join("Contents/MacOS"),
-            staged.app_dir.join("Contents/Resources"),
-        ),
-        BundleFormat::Windows | BundleFormat::Msi | BundleFormat::Exe => {
-            (staged.app_dir.clone(), staged.app_dir.join("resources"))
-        }
-        BundleFormat::AppImage
-        | BundleFormat::Linux
-        | BundleFormat::Deb
-        | BundleFormat::Rpm
-        | BundleFormat::Portable => (
-            staged.app_dir.join("usr/bin"),
-            staged.app_dir.join("usr/share/sabine/manifests"),
-        ),
-    };
-    fs::create_dir_all(&binary_dir).map_err(|error| error.to_string())?;
-    for (source, name) in [
-        (&service, service.file_name().unwrap_or_default()),
-        (&daemon, daemon.file_name().unwrap_or_default()),
-    ] {
-        copy_binary(source, &binary_dir.join(name))?;
-    }
-    if cfg!(target_os = "macos") {
-        let host_bundle = host
-            .ancestors()
-            .find(|path| path.extension().is_some_and(|extension| extension == "app"))
-            .ok_or_else(|| "macOS Sabine host is not inside an app bundle".to_string())?;
-        copy_dir_recursive(host_bundle, &binary_dir.join("sabine-host.app"))
-            .map_err(|error| format!("could not stage macOS Sabine host: {error}"))?;
-    } else {
-        copy_binary(
-            &host,
-            &binary_dir.join(host.file_name().unwrap_or_default()),
-        )?;
-    }
-    let runtime_name = runtime
-        .location
-        .path()
-        .file_name()
-        .ok_or_else(|| "offline runtime has no directory name".to_string())?;
-    copy_runtime_recursive(
-        runtime.location.path(),
-        &manifest_dir.join("runtimes/cef").join(runtime_name),
-    )
-    .map_err(|error| format!("could not stage offline CEF runtime: {error}"))
 }
 
 pub(super) fn binary_path(app: &BundleApp, format: BundleFormat, release: bool) -> PathBuf {
@@ -413,30 +365,6 @@ fn copy_dir_recursive(source: &Path, destination: &Path) -> io::Result<()> {
             copy_dir_recursive(&source_path, &destination_path)?;
         } else {
             fs::copy(&source_path, &destination_path)?;
-        }
-    }
-    Ok(())
-}
-
-fn copy_runtime_recursive(source: &Path, destination: &Path) -> io::Result<()> {
-    fs::create_dir_all(destination)?;
-    for entry in fs::read_dir(source)? {
-        let entry = entry?;
-        let name = entry.file_name();
-        let name_text = name.to_string_lossy();
-        if matches!(
-            name_text.as_ref(),
-            ".leases" | ".sabine-host-build" | ".sabine-hosts"
-        ) || name_text.ends_with(".installing")
-        {
-            continue;
-        }
-        let source_path = entry.path();
-        let destination_path = destination.join(name);
-        if source_path.is_dir() {
-            copy_runtime_recursive(&source_path, &destination_path)?;
-        } else {
-            fs::copy(source_path, destination_path)?;
         }
     }
     Ok(())

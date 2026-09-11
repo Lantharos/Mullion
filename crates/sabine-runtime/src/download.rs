@@ -9,7 +9,6 @@ use sha1::{Digest, Sha1};
 
 use crate::error::RuntimeError;
 use crate::paths::runtime_version_path;
-use crate::process::background_command;
 use crate::types::{RuntimeConfig, RuntimeInstallPlan, RuntimeInstallProgress, RuntimeInstallStep};
 use crate::version::{cef_platform_key, channel_preference, major_version, version_sort_key};
 
@@ -144,28 +143,9 @@ pub(crate) fn verify_sha1_with_progress(
 }
 
 pub(crate) fn extract_archive(archive: &Path, destination: &Path) -> Result<(), RuntimeError> {
-    std::fs::create_dir_all(destination)?;
-    // Canonicalize so the archive path is absolute. Extract with cwd=destination
-    // instead of `tar -C <path>`: GNU tar (common via Git for Windows) treats a
-    // drive letter in -C as a remote hostname and produces a corrupt/partial tree.
-    let archive = std::fs::canonicalize(archive).unwrap_or_else(|_| archive.to_path_buf());
-    let output = background_command("tar")
-        .current_dir(destination)
-        .arg("-xjf")
-        .arg(&archive)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::piped())
-        .output()
-        .map_err(RuntimeError::Io)?;
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(RuntimeError::InstallationFailed(format!(
-            "failed to extract CEF archive: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        )))
-    }
+    let input = std::fs::File::open(archive)?;
+    crate::archive::extract_tar(bzip2::read::BzDecoder::new(input), destination)?;
+    Ok(())
 }
 
 pub(crate) fn first_extracted_runtime_dir(work_dir: &Path) -> Option<PathBuf> {
@@ -202,7 +182,7 @@ pub fn latest_install_plan(config: &RuntimeConfig) -> Result<RuntimeInstallPlan,
             version
                 .files
                 .iter()
-                .find(|file| file.kind == "standard")
+                .find(|file| file.kind == "minimal")
                 .map(|file| (version, file))
         })
         .collect::<Vec<_>>();
@@ -216,11 +196,23 @@ pub fn latest_install_plan(config: &RuntimeConfig) -> Result<RuntimeInstallPlan,
 
     let Some((version, file)) = candidates.into_iter().next() else {
         return Err(RuntimeError::NotFound(format!(
-            "no Standard CEF build found for {platform} at Chromium {} or newer",
+            "no Minimal CEF build found for {platform} at Chromium {} or newer",
             crate::MIN_CEF_MAJOR,
         )));
     };
 
+    if !safe_archive_name(&file.name)
+        || !version
+            .cef_version
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '+' | '-' | '_'))
+        || file.sha1.len() != 40
+        || !file.sha1.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err(RuntimeError::InstallationFailed(
+            "CEF index contains invalid archive metadata".to_string(),
+        ));
+    }
     let install_dir = runtime_version_path(&version.cef_version);
     Ok(RuntimeInstallPlan {
         version: version.cef_version.clone(),
@@ -230,6 +222,15 @@ pub fn latest_install_plan(config: &RuntimeConfig) -> Result<RuntimeInstallPlan,
         sha1: file.sha1.clone(),
         install_dir,
     })
+}
+
+fn safe_archive_name(name: &str) -> bool {
+    !name.is_empty()
+        && name != "."
+        && name != ".."
+        && name
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '+' | '-' | '_'))
 }
 
 #[derive(Deserialize)]
