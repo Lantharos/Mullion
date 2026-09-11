@@ -2,6 +2,7 @@ mod archive;
 mod assets;
 mod detect;
 mod diagnostics;
+mod directory_install;
 mod download;
 mod error;
 mod file_lock;
@@ -18,6 +19,7 @@ pub(crate) const MIN_CEF_MAJOR: &str = "151";
 
 pub use archive::extract_tar_archive;
 pub use assets::prepare_runtime_assets;
+pub use directory_install::{install_directory, recover_directory_installs};
 pub use download::{DEFAULT_CEF_INDEX_URL, latest_install_plan};
 pub use error::RuntimeError;
 pub use file_lock::FileLock;

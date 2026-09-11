@@ -96,7 +96,12 @@ pub fn ensure_service_executable(
     if let Some(path) = configured_service() {
         return Ok(path);
     }
-    if let Some((version, directory)) = current_installation() {
+    let mut current = current_installation();
+    if current.is_none() && read_installation_state().is_some() {
+        let _lock = lock_system_installation()?;
+        current = current_installation();
+    }
+    if let Some((version, directory)) = current {
         let current = directory.join(service_binary_name());
         if !managed_system_is_older(&version) {
             return Ok(current);
@@ -252,10 +257,7 @@ fn seed_managed_install(service: &Path) -> ServiceResult<PathBuf> {
             fs::copy(source, &target)?;
             make_executable(&target)?;
         }
-        if destination.exists() {
-            fs::remove_dir_all(&destination)?;
-        }
-        fs::rename(staging, &destination)?;
+        sabine_runtime::install_directory(&staging, &destination)?;
     }
     let previous_state = read_installation_state();
     let previous = previous_state
@@ -568,10 +570,7 @@ fn install_system_archive(
         }
         make_executable(&source)?;
     }
-    if install_dir.exists() {
-        fs::remove_dir_all(install_dir)?;
-    }
-    fs::rename(&staging, install_dir)?;
+    sabine_runtime::install_directory(&staging, install_dir)?;
     let _ = fs::remove_file(archive);
     Ok(())
 }

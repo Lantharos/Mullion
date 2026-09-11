@@ -77,7 +77,6 @@ pub struct RuntimeInstallPlan {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RuntimeInstallStep {
     Preparing,
-    RemovingOldRuntime,
     Downloading,
     Verifying,
     Extracting,

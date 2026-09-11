@@ -22,6 +22,11 @@ Registry writes, runtime installation, and shared-system installation use operat
 locks. A crashed owner releases its lock immediately, and an active operation's lock is never
 stolen because of its age. File replacements preserve the previous destination until the rename
 succeeds, including on Windows.
+Runtime and shared-system directory replacements retain the previous directory until validated
+staging is published. The next installation lock restores an interrupted replacement or cleans up
+its backup. Service startup recovers a missing active directory before attempting a network repair.
+Runtime lease creation shares a short mutation lock with replacement and pruning, so an app cannot
+start using a runtime while it is being removed; downloads do not hold this mutation lock.
 
 Routine Sabine and app updates become eligible 24 hours after publication plus a stable
 per-installation rollout offset between zero and six hours. This spreads load and leaves time to

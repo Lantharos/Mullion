@@ -17,6 +17,13 @@ impl RuntimeLease {
         if !runtime_dir.starts_with(user_runtime_path()) {
             return Ok(Self { path: None });
         }
+        let _lock = runtime_mutation_lock()?;
+        if !crate::host::runtime_is_valid(runtime_dir) {
+            return Err(RuntimeError::NotFound(format!(
+                "runtime was removed or became unavailable: {}",
+                runtime_dir.display()
+            )));
+        }
         let directory = runtime_dir.join(".leases");
         std::fs::create_dir_all(&directory)?;
         let pid = std::process::id();
@@ -70,4 +77,12 @@ pub(crate) fn runtime_is_leased(runtime_dir: &Path) -> Result<bool, RuntimeError
         let _ = std::fs::remove_dir(directory);
     }
     Ok(leased)
+}
+
+pub(crate) fn runtime_mutation_lock() -> std::io::Result<crate::FileLock> {
+    crate::FileLock::acquire(
+        &user_runtime_path().join(".mutation.lock"),
+        std::time::Duration::from_secs(10),
+        |_| {},
+    )
 }

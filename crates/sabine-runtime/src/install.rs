@@ -14,7 +14,7 @@ use crate::download::{
 };
 use crate::error::RuntimeError;
 use crate::host::runtime_is_valid;
-use crate::lease::runtime_is_leased;
+use crate::lease::{runtime_is_leased, runtime_mutation_lock};
 use crate::paths::user_runtime_path;
 use crate::resolve::resolve_runtime;
 use crate::types::{
@@ -151,25 +151,18 @@ fn install_user_runtime_inner(
             extracted.display()
         )));
     }
+    let _mutation = runtime_mutation_lock()?;
     if plan.install_dir.exists() && runtime_is_leased(&plan.install_dir)? {
         return Err(RuntimeError::InstallationFailed(
             "Close applications using this runtime before repairing it".to_string(),
         ));
-    }
-    if plan.install_dir.exists() {
-        progress(RuntimeInstallProgress::new(
-            RuntimeInstallStep::RemovingOldRuntime,
-            Some(0.93),
-            "Removing previous runtime",
-        ));
-        std::fs::remove_dir_all(&plan.install_dir)?;
     }
     progress(RuntimeInstallProgress::new(
         RuntimeInstallStep::Installing,
         Some(0.96),
         "Installing runtime",
     ));
-    std::fs::rename(&extracted, &plan.install_dir)?;
+    crate::install_directory(&extracted, &plan.install_dir)?;
     let _ = std::fs::remove_dir_all(&work_dir);
     progress(RuntimeInstallProgress::new(
         RuntimeInstallStep::Complete,
@@ -266,6 +259,7 @@ fn extract_archive_with_progress(
 pub fn prune_user_runtimes(keep_latest: usize) -> Result<usize, RuntimeError> {
     std::fs::create_dir_all(user_runtime_path())?;
     let _lock = RuntimeInstallLock::acquire(|_| {})?;
+    let _mutation = runtime_mutation_lock()?;
     let base = user_runtime_path();
     if !base.is_dir() {
         return Ok(0);
@@ -292,6 +286,7 @@ pub fn prune_user_runtimes(keep_latest: usize) -> Result<usize, RuntimeError> {
 pub fn remove_user_runtime_version(version: &str) -> Result<bool, RuntimeError> {
     std::fs::create_dir_all(user_runtime_path())?;
     let _lock = RuntimeInstallLock::acquire(|_| {})?;
+    let _mutation = runtime_mutation_lock()?;
     let base = user_runtime_path();
     if !base.is_dir() {
         return Ok(false);
@@ -339,6 +334,8 @@ impl RuntimeInstallLock {
                 }
             },
         )?;
+        let _mutation = runtime_mutation_lock()?;
+        crate::recover_directory_installs(&user_runtime_path())?;
         Ok(Self { _lock: lock })
     }
 }

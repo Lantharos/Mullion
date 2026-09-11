@@ -165,9 +165,11 @@ pub(super) fn system_update_is_backed_off(version: &str) -> bool {
 }
 
 pub(super) fn lock_system_installation() -> ServiceResult<sabine_runtime::FileLock> {
-    Ok(sabine_runtime::FileLock::acquire(
+    let lock = sabine_runtime::FileLock::acquire(
         &service_data_dir().join("bin/system.lock"),
         std::time::Duration::from_secs(600),
         |_| {},
-    )?)
+    )?;
+    sabine_runtime::recover_directory_installs(&versions_dir())?;
+    Ok(lock)
 }
