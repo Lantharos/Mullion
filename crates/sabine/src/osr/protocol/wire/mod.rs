@@ -52,6 +52,8 @@ pub(super) const KIND_IME_STATE_CHANGED: u32 = 31;
 pub(super) const KIND_IME_CURSOR_AREA_CHANGED: u32 = 32;
 pub(super) const KIND_TOOLTIP_CHANGED: u32 = 33;
 pub(super) const KIND_IME_SURROUNDING_CHANGED: u32 = 34;
+pub(super) const KIND_MAXIMIZE_REQUESTED: u32 = 35;
+pub(super) const KIND_RESTORE_REQUESTED: u32 = 36;
 pub(super) const BATCH_ENTRY_LEN: usize = 28;
 
 pub(crate) fn read_message(reader: &mut IpcStream) -> io::Result<Option<OsrMessage>> {
@@ -169,6 +171,8 @@ pub(crate) fn read_message(reader: &mut IpcStream) -> io::Result<Option<OsrMessa
         KIND_CLOSE_REQUESTED => OsrMessage::CloseRequested,
         KIND_START_DRAG_REQUESTED => OsrMessage::StartDragRequested,
         KIND_MINIMIZE_REQUESTED => OsrMessage::MinimizeRequested,
+        KIND_MAXIMIZE_REQUESTED => OsrMessage::MaximizeRequested,
+        KIND_RESTORE_REQUESTED => OsrMessage::RestoreRequested,
         KIND_TOGGLE_MAXIMIZE_REQUESTED => OsrMessage::ToggleMaximizeRequested,
         KIND_FULLSCREEN_REQUESTED => OsrMessage::FullscreenRequested(true),
         KIND_EXIT_FULLSCREEN_REQUESTED => OsrMessage::FullscreenRequested(false),

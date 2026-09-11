@@ -24,6 +24,7 @@ impl OsrNativeHost {
                 self.config.lifecycle.background_frame_rate.max(1),
             ),
         };
+        self.last_frame_rate.set(Some(frame_rate));
         self.send_control(&format!(
             "lifecycle\t{name}\t{frame_rate}\t{}\n",
             encode_component(reason)
@@ -43,6 +44,14 @@ impl OsrNativeHost {
             .and_then(|window| window.current_monitor())
             .and_then(monitor_frame_rate)
             .unwrap_or(FALLBACK_ACTIVE_FRAME_RATE)
+    }
+
+    pub(super) fn sync_active_frame_rate(&self) {
+        if self.lifecycle_state == LifecycleState::Active
+            && self.last_frame_rate.get() != Some(self.active_frame_rate())
+        {
+            self.send_lifecycle(LifecycleState::Active, "monitor");
+        }
     }
 
     fn should_suspend(&self) -> bool {
@@ -231,12 +240,7 @@ impl OsrNativeHost {
 
 fn monitor_frame_rate(monitor: MonitorHandle) -> Option<u32> {
     monitor
-        .video_modes()
-        .filter_map(|mode| {
-            mode.refresh_rate_millihertz()
-                .map(|millihertz| millihertz.get())
-        })
-        .max()
-        .map(|millihertz| millihertz.saturating_add(999) / 1000)
-        .filter(|rate| *rate > 0)
+        .current_video_mode()?
+        .refresh_rate_millihertz()
+        .map(|millihertz| millihertz.get().saturating_add(999) / 1000)
 }

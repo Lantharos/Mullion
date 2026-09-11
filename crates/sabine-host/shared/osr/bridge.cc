@@ -103,7 +103,11 @@ bool SabineOsrHandler::HandleWindowCommand(CefRefPtr<CefBrowser> browser,
     SendMessage(6, 0, 0, 0, 0, nullptr, 0);
   } else if (command == "minimize") {
     SendMessage(7, 0, 0, 0, 0, nullptr, 0);
-  } else if (command == "maximize" || command == "toggle-maximize") {
+  } else if (command == "maximize") {
+    SendMessage(35, 0, 0, 0, 0, nullptr, 0);
+  } else if (command == "restore") {
+    SendMessage(36, 0, 0, 0, 0, nullptr, 0);
+  } else if (command == "toggle-maximize") {
     SendMessage(8, 0, 0, 0, 0, nullptr, 0);
   } else if (command == "fullscreen") {
     SendMessage(27, 0, 0, 0, 0, nullptr, 0);

@@ -1,6 +1,7 @@
 mod window;
 
 use std::{
+    cell::Cell,
     collections::{BTreeMap, BTreeSet},
     io::BufRead,
     path::PathBuf,
@@ -71,6 +72,7 @@ pub(super) struct OsrNativeHost {
     pub(super) ime_preedit: Option<super::types::ImePreedit>,
     pub(super) occluded: bool,
     pub(super) lifecycle_state: LifecycleState,
+    pub(super) last_frame_rate: Cell<Option<u32>>,
     pub(super) hibernate_deadline: Option<Instant>,
     pub(super) hibernate_commit_deadline: Option<Instant>,
     pub(super) closing_deadline: Option<Instant>,
@@ -154,6 +156,7 @@ impl OsrNativeHost {
             ime_preedit: None,
             occluded: false,
             lifecycle_state,
+            last_frame_rate: Cell::new(None),
             hibernate_deadline,
             hibernate_commit_deadline: None,
             closing_deadline: None,

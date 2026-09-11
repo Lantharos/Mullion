@@ -437,7 +437,9 @@ impl OsrLayerHost {
                 ));
             }
             OsrMessage::MinimizeRequested => {}
-            OsrMessage::ToggleMaximizeRequested => {}
+            OsrMessage::ToggleMaximizeRequested
+            | OsrMessage::MaximizeRequested
+            | OsrMessage::RestoreRequested => {}
             OsrMessage::FullscreenRequested(_) => {}
             OsrMessage::MainLoadStarted => {
                 self.main_load_ready = false;

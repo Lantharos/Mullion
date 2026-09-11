@@ -71,6 +71,8 @@ pub(crate) enum OsrMessage {
     StartDragRequested,
     MinimizeRequested,
     ToggleMaximizeRequested,
+    MaximizeRequested,
+    RestoreRequested,
     FullscreenRequested(bool),
     ShowRequested,
     HideRequested,

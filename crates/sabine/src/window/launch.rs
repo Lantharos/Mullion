@@ -19,10 +19,15 @@ use crate::osr;
 
 impl SabineWindow {
     pub fn launch(self) -> SabineResult<SabineProcess> {
+        let metrics = LaunchMetrics::new(metrics_label(&self.config));
+        metrics.mark("launch.start");
         self.config.validate()?;
+        metrics.mark("config.ready");
         bootstrap::prepare(&self.config)?;
+        metrics.mark("bootstrap.ready");
         let runtime = resolve_runtime(&self.config.runtime)?;
-        self.launch_with_runtime(runtime)
+        metrics.mark("runtime.ready");
+        self.launch_with_runtime(runtime, metrics)
     }
 
     /// Resolve entry URL and config for [`SabineProcess::open_window`].
@@ -38,6 +43,7 @@ impl SabineWindow {
     pub(crate) fn launch_with_runtime(
         mut self,
         runtime: RuntimeInfo,
+        metrics: LaunchMetrics,
     ) -> SabineResult<SabineProcess> {
         #[cfg(any(target_os = "android", target_os = "ios"))]
         {
@@ -46,8 +52,6 @@ impl SabineWindow {
         }
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         {
-            let metrics = LaunchMetrics::new(metrics_label(&self.config));
-            metrics.mark("launch.start");
             #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
             let desktop_services = Some(
                 apply_desktop_services(

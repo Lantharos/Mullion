@@ -161,6 +161,12 @@ size, and accelerated paints with transitional coded/content/source metadata are
 keeps the swapchain responsive without stretching a stale frame or presenting a partially relaid-out
 Chromium texture.
 
+Automatic frame pacing follows the monitor's current display mode and updates when the window
+moves, changes scale or size, or regains focus. An explicit lifecycle frame rate overrides this
+selection. Launch metrics start before configuration validation and include shared-runtime setup
+and runtime resolution. Window `maximize()` is idempotent; `toggleMaximize()` toggles maximization,
+and `restore()` leaves fullscreen, maximization, and minimization.
+
 Transport is platform-specific without changing the protocol. On Unix, sockets live under
 `$XDG_RUNTIME_DIR/sabine/<app_id>/` (mode `0700`) with socket mode `0600`, and each window
 authenticates with a first-line token read from a one-use `0600` token file. The environment is

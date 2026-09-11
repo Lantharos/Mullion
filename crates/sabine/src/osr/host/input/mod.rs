@@ -47,6 +47,7 @@ impl ApplicationHandler for OsrNativeHost {
             }
             WindowEvent::Destroyed => self.drop_hidden_window(),
             WindowEvent::SurfaceResized(size) => {
+                self.sync_active_frame_rate();
                 if size.width == 0 || size.height == 0 {
                     return;
                 }
@@ -68,6 +69,7 @@ impl ApplicationHandler for OsrNativeHost {
                 }
             }
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                self.sync_active_frame_rate();
                 let size = window.surface_size();
                 self.surface_size = size;
                 self.scale_factor = scale_factor;
@@ -80,6 +82,7 @@ impl ApplicationHandler for OsrNativeHost {
                 }
             }
             WindowEvent::Focused(focused) => {
+                self.sync_active_frame_rate();
                 let focused = focused && self.config.visible;
                 self.focused = focused;
                 self.send_control(if focused { "focus\t1\n" } else { "focus\t0\n" });
@@ -104,7 +107,10 @@ impl ApplicationHandler for OsrNativeHost {
                 self.send_key_event(&event);
             }
             WindowEvent::Ime(ime) => self.forward_ime(ime),
-            WindowEvent::Moved(_) => self.send_screen_origin(),
+            WindowEvent::Moved(_) => {
+                self.send_screen_origin();
+                self.sync_active_frame_rate();
+            }
             WindowEvent::RedrawRequested if self.config.visible && self.presented => {
                 self.render();
             }

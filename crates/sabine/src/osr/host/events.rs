@@ -193,6 +193,19 @@ impl OsrNativeHost {
                         window.set_minimized(true);
                     }
                 }
+                super::types::OsrHostEvent::Message(_, OsrMessage::MaximizeRequested) => {
+                    if let Some(window) = &self.window {
+                        window.set_maximized(true);
+                    }
+                }
+                super::types::OsrHostEvent::Message(_, OsrMessage::RestoreRequested) => {
+                    if let Some(window) = &self.window {
+                        window.set_fullscreen(None);
+                        window.set_maximized(false);
+                        window.set_minimized(false);
+                    }
+                    self.resume("restore");
+                }
                 super::types::OsrHostEvent::Message(_, OsrMessage::ToggleMaximizeRequested) => {
                     if let Some(window) = &self.window {
                         window.set_maximized(!window.is_maximized());
