@@ -1,6 +1,8 @@
+mod transfer;
+pub(crate) use transfer::download_file;
+
 use std::{
     collections::BTreeMap,
-    io::{Read, Write},
     path::{Path, PathBuf},
 };
 
@@ -16,6 +18,10 @@ pub const DEFAULT_CEF_INDEX_URL: &str = "https://cef-builds.spotifycdn.com/index
 
 pub(crate) fn fetch_cef_index(index_url: &str) -> Result<CefIndex, RuntimeError> {
     let mut response = ureq::get(index_url)
+        .config()
+        .timeout_global(Some(std::time::Duration::from_secs(60)))
+        .timeout_connect(Some(std::time::Duration::from_secs(15)))
+        .build()
         .call()
         .map_err(|error| RuntimeError::InstallationFailed(error.to_string()))?;
     let output = response
@@ -40,56 +46,6 @@ pub(crate) fn archive_url(index_url: &str, archive_name: &str) -> String {
     } else {
         format!("{base}/{archive_name}")
     }
-}
-
-pub(crate) fn download_file(
-    url: &str,
-    destination: &Path,
-    progress: &mut impl FnMut(RuntimeInstallProgress),
-) -> Result<(), RuntimeError> {
-    progress(RuntimeInstallProgress::new(
-        RuntimeInstallStep::Downloading,
-        Some(0.05),
-        "Downloading runtime",
-    ));
-    let response = ureq::get(url)
-        .call()
-        .map_err(|error| RuntimeError::InstallationFailed(error.to_string()))?;
-    let total = response
-        .headers()
-        .get("content-length")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.parse::<u64>().ok());
-    let (_, body) = response.into_parts();
-    let mut reader = body.into_reader();
-    let mut output = std::fs::File::create(destination)?;
-    let mut downloaded = 0_u64;
-    let mut buffer = [0_u8; 64 * 1024];
-    let mut last_report = std::time::Instant::now()
-        .checked_sub(std::time::Duration::from_secs(1))
-        .unwrap_or_else(std::time::Instant::now);
-    loop {
-        let read = reader.read(&mut buffer)?;
-        if read == 0 {
-            break;
-        }
-        output.write_all(&buffer[..read])?;
-        downloaded = downloaded.saturating_add(read as u64);
-        if last_report.elapsed() >= std::time::Duration::from_millis(100)
-            && let Some(total) = total.filter(|total| *total > 0)
-        {
-            let percent = (downloaded as f32 / total as f32 * 100.0).min(100.0);
-            progress(RuntimeInstallProgress::new(
-                RuntimeInstallStep::Downloading,
-                Some(0.05 + (percent / 100.0) * 0.65),
-                format!("Downloading runtime ({percent:.0}%)"),
-            ));
-            last_report = std::time::Instant::now();
-        }
-    }
-    output.flush()?;
-    output.sync_all()?;
-    Ok(())
 }
 
 pub(crate) fn verify_sha1_with_progress(
@@ -206,6 +162,8 @@ pub fn latest_install_plan(config: &RuntimeConfig) -> Result<RuntimeInstallPlan,
             .cef_version
             .chars()
             .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '+' | '-' | '_'))
+        || file.size == 0
+        || file.size > 2 * 1024 * 1024 * 1024
         || file.sha1.len() != 40
         || !file.sha1.bytes().all(|byte| byte.is_ascii_hexdigit())
     {
@@ -220,6 +178,7 @@ pub fn latest_install_plan(config: &RuntimeConfig) -> Result<RuntimeInstallPlan,
         archive_name: file.name.clone(),
         url: archive_url(index_url, &file.name),
         sha1: file.sha1.clone(),
+        archive_size: file.size,
         install_dir,
     })
 }
@@ -254,6 +213,7 @@ struct CefVersion {
 
 #[derive(Deserialize)]
 struct CefFile {
+    size: u64,
     name: String,
     sha1: String,
     #[serde(rename = "type")]
@@ -263,6 +223,7 @@ struct CefFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
 
     #[test]
     fn archive_urls_follow_index_location() {
@@ -308,6 +269,7 @@ mod tests {
         download_file(
             &format!("http://{address}/runtime"),
             &destination,
+            body.len() as u64,
             &mut |update| progress.push(update),
         )
         .unwrap();

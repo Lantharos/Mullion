@@ -93,13 +93,14 @@ fn install_user_runtime_inner(
 
     let work_dir = user_runtime_path().join(".installing");
     std::fs::create_dir_all(&work_dir)?;
-    // Drop leftover extract trees from a previous attempt, but keep a matching
-    // archive so a crashed install can resume without re-downloading ~600MB.
     cleanup_install_work_dir(&work_dir, &plan.archive_name)?;
 
     let archive_path = work_dir.join(&plan.archive_name);
     let mut archive_ready = false;
-    if archive_path.is_file() {
+    if archive_path
+        .metadata()
+        .is_ok_and(|metadata| metadata.len() >= plan.archive_size)
+    {
         progress(RuntimeInstallProgress::new(
             RuntimeInstallStep::Verifying,
             Some(0.70),
@@ -111,7 +112,7 @@ fn install_user_runtime_inner(
                 progress(RuntimeInstallProgress::new(
                     RuntimeInstallStep::Downloading,
                     Some(0.05),
-                    "Downloaded archive incomplete; re-downloading",
+                    "Downloaded archive failed verification; re-downloading",
                 ));
                 let _ = std::fs::remove_file(&archive_path);
             }
@@ -124,7 +125,7 @@ fn install_user_runtime_inner(
             "Resuming with downloaded runtime archive",
         ));
     } else {
-        download_file(&plan.url, &archive_path, &mut progress)?;
+        download_file(&plan.url, &archive_path, plan.archive_size, &mut progress)?;
         progress(RuntimeInstallProgress::new(
             RuntimeInstallStep::Verifying,
             Some(0.72),

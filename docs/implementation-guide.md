@@ -257,6 +257,12 @@ which retains the build SDK while omitting Debug libraries and sample applicatio
 detection requires the platform CEF binary, `icudtl.dat`, `resources.pak`, and at least one locale pack;
 headers and CMake files are required only when compiling the host.
 
+Interrupted CEF downloads retain their bytes and resume with validated HTTP byte ranges. Servers
+that do not support ranges restart the transfer. Archive sizes are checked against the index before
+SHA-1 verification; transient network/server failures retry up to four times, with a 30-minute
+transfer deadline. Closing the setup window cancels its process and preserves the partial download.
+Setup failures remain visible until dismissed, then exit without opening a second error window.
+
 Runtime extraction runs in process and rejects unsafe paths, links leaving the version directory,
 and special device entries. Extracted assets are validated before replacing an incomplete runtime,
 and a runtime leased by a running app cannot be repaired in place. Offline bundles contain only

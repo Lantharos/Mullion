@@ -20,6 +20,10 @@ pub enum SabineError {
     },
     #[error("window creation failed: {message}")]
     CreationFailed { message: String },
+    #[error("Sabine setup was cancelled")]
+    SetupCancelled,
+    #[error("Sabine setup failed; details were shown in the setup window")]
+    SetupFailed,
     #[error("another instance is already running")]
     InstanceAlreadyRunning,
     #[error("Sabine currently supports Linux, macOS, and Windows")]

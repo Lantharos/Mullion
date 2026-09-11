@@ -68,6 +68,7 @@ pub struct RuntimeInstallPlan {
     pub version: String,
     pub platform: String,
     pub archive_name: String,
+    pub archive_size: u64,
     pub url: String,
     pub sha1: String,
     pub install_dir: PathBuf,

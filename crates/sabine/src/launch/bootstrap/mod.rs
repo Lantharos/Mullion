@@ -76,11 +76,15 @@ pub(crate) fn run_from_args(args: &[String]) -> bool {
             result.map(|_| ()).map_err(|error| error.to_string()),
         );
     });
-    if let Err(error) = result {
-        sabine_runtime::report_error("setup", error);
-        std::process::exit(1);
+    match result {
+        Ok(ui::ProgressOutcome::Complete) => true,
+        Ok(ui::ProgressOutcome::Cancelled) => std::process::exit(2),
+        Ok(ui::ProgressOutcome::Failed) => std::process::exit(3),
+        Err(error) => {
+            sabine_runtime::report_error("setup", error);
+            std::process::exit(1);
+        }
     }
-    true
 }
 
 pub(crate) fn prepare(config: &SabineWindowConfig) -> SabineResult<()> {
@@ -214,12 +218,16 @@ fn run_bootstrap_install(
             message: format!("failed to launch Sabine bootstrap: {error}"),
         })?;
     let _ = std::fs::remove_file(config_path);
-    if status.success() {
-        Ok(())
-    } else {
-        Err(SabineError::CreationFailed {
-            message: "Sabine setup did not complete".to_string(),
-        })
+    match status.code() {
+        Some(0) => Ok(()),
+        Some(2) => Err(SabineError::SetupCancelled),
+        Some(3) => Err(SabineError::SetupFailed),
+        _ => Err(SabineError::CreationFailed {
+            message: format!(
+                "Sabine setup stopped unexpectedly ({status}); details: {}",
+                sabine_runtime::diagnostic_path("setup").display()
+            ),
+        }),
     }
 }
 

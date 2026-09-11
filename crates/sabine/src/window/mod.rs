@@ -91,7 +91,10 @@ impl SabineWindow {
                     }
                 }
             }
-            Err(crate::SabineError::InstanceAlreadyRunning) => std::process::exit(0),
+            Err(
+                crate::SabineError::InstanceAlreadyRunning | crate::SabineError::SetupCancelled,
+            ) => std::process::exit(0),
+            Err(crate::SabineError::SetupFailed) => std::process::exit(1),
             Err(error) => {
                 crate::launch::bootstrap::show_failure("Could not open the application", &error);
                 std::process::exit(1);

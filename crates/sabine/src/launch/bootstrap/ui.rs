@@ -30,12 +30,20 @@ pub(super) struct ProgressState {
     pub(super) fraction: Option<f32>,
     pub(super) done: Option<Result<(), String>>,
     pub(super) dirty: bool,
+    cancelled: bool,
+    ui_error: Option<String>,
+}
+
+pub(super) enum ProgressOutcome {
+    Complete,
+    Cancelled,
+    Failed,
 }
 
 pub(super) fn run_progress_window(
     title: &str,
     work: impl FnOnce(Arc<Mutex<ProgressState>>, EventLoopProxy) + Send + 'static,
-) -> Result<(), String> {
+) -> Result<ProgressOutcome, String> {
     let event_loop = EventLoop::new().map_err(|error| error.to_string())?;
     let proxy = event_loop.create_proxy();
     let state = Arc::new(Mutex::new(ProgressState {
@@ -56,13 +64,18 @@ pub(super) fn run_progress_window(
     };
     event_loop.run_app(app).map_err(|error| error.to_string())?;
 
-    match state.lock() {
-        Ok(guard) => guard
-            .done
-            .clone()
-            .unwrap_or_else(|| Err("Sabine setup did not complete".to_string())),
-        Err(_) => Err("Sabine setup did not complete".to_string()),
+    let guard = state.lock().map_err(|error| error.to_string())?;
+    if let Some(error) = &guard.ui_error {
+        return Err(error.clone());
     }
+    if guard.cancelled {
+        return Ok(ProgressOutcome::Cancelled);
+    }
+    Ok(match &guard.done {
+        Some(Ok(())) => ProgressOutcome::Complete,
+        Some(Err(_)) => ProgressOutcome::Failed,
+        None => ProgressOutcome::Cancelled,
+    })
 }
 
 static LAST_PROGRESS_MS: AtomicU64 = AtomicU64::new(0);
@@ -131,7 +144,7 @@ impl ApplicationHandler for ProgressApp {
         let window: Arc<dyn Window> = match event_loop.create_window(attributes) {
             Ok(window) => Arc::from(window),
             Err(error) => {
-                eprintln!("failed to open Sabine setup window: {error}");
+                self.ui_failed(format!("failed to open Sabine setup window: {error}"));
                 event_loop.exit();
                 return;
             }
@@ -139,7 +152,7 @@ impl ApplicationHandler for ProgressApp {
         let context = match Context::new(window.clone()) {
             Ok(context) => context,
             Err(error) => {
-                eprintln!("failed to create Sabine setup context: {error}");
+                self.ui_failed(format!("failed to create Sabine setup context: {error}"));
                 event_loop.exit();
                 return;
             }
@@ -147,7 +160,7 @@ impl ApplicationHandler for ProgressApp {
         let surface = match Surface::new(&context, window.clone()) {
             Ok(surface) => surface,
             Err(error) => {
-                eprintln!("failed to create Sabine setup surface: {error}");
+                self.ui_failed(format!("failed to create Sabine setup surface: {error}"));
                 event_loop.exit();
                 return;
             }
@@ -165,7 +178,12 @@ impl ApplicationHandler for ProgressApp {
         event: WindowEvent,
     ) {
         match event {
-            WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::CloseRequested => {
+                if let Ok(mut state) = self.state.lock() {
+                    state.cancelled = state.done.is_none();
+                }
+                event_loop.exit();
+            }
             WindowEvent::KeyboardInput { event, .. }
                 if event.state == winit::event::ElementState::Pressed
                     && matches!(
@@ -214,6 +232,12 @@ impl ApplicationHandler for ProgressApp {
 }
 
 impl ProgressApp {
+    fn ui_failed(&self, message: String) {
+        if let Ok(mut state) = self.state.lock() {
+            state.ui_error = Some(message);
+        }
+    }
+
     fn paint(&mut self, force: bool) {
         let Some(window) = &self.window else {
             return;
