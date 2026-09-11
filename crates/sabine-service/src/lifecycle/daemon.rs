@@ -133,6 +133,9 @@ pub fn run_daemon() -> ServiceResult<()> {
         }
         match service.maintain() {
             Ok(report) => {
+                for error in &report.update_failures {
+                    eprintln!("Sabine maintenance failed: {error}");
+                }
                 if let Some(required) = report.required_system_update
                     && let Some(update) = crate::install::stage_required_system_update(required)?
                 {

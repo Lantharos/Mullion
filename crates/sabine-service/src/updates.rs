@@ -22,29 +22,25 @@ use installers::{
 
 impl SabineService {
     pub fn maintain(&self) -> ServiceResult<MaintenanceReport> {
-        retry_quarantined_runtimes()?;
-        let mut runtime = update_user_runtime_with_progress(&self.runtime, |_| {})?;
-        let host = sabine_host::available_host(runtime.location.path()).ok_or_else(|| {
-            ServiceError::Update(
-                "installed Sabine host is unavailable for runtime validation".into(),
-            )
-        })?;
-        if let Err(error) = sabine_host::smoke_test_runtime(&host, runtime.location.path()) {
-            quarantine_user_runtime(
-                &runtime,
-                &format!(
-                    "probe={}\n{error}",
-                    sabine_host::runtime_probe_fingerprint()
-                ),
-            )?;
-            runtime = resolve_runtime(&self.runtime)?;
-        }
-        let pruned_runtimes = prune_user_runtimes(2)?;
-        let incompatible_apps = self.remove_incompatible_apps()?;
+        let mut update_failures = Vec::new();
+        let runtime = match self.maintain_runtime() {
+            Ok(runtime) => Some(runtime),
+            Err(error) => {
+                update_failures.push(format!("runtime: {error}"));
+                resolve_runtime(&self.runtime).ok()
+            }
+        };
+        let pruned_runtimes = match prune_user_runtimes(2) {
+            Ok(count) => count,
+            Err(error) => {
+                update_failures.push(format!("runtime pruning: {error}"));
+                0
+            }
+        };
+        let incompatible_apps = self.incompatible_apps()?;
         let apps = self.apps()?;
         let mut updated_apps = Vec::new();
         let mut pending_apps = Vec::new();
-        let mut update_failures = Vec::new();
         let mut required_system_update = None;
         for app in &apps {
             let Some(update) = &app.manifest.update else {
@@ -92,6 +88,36 @@ impl SabineService {
             incompatible_apps,
             required_system_update,
         })
+    }
+
+    fn maintain_runtime(&self) -> ServiceResult<sabine_runtime::RuntimeInfo> {
+        retry_quarantined_runtimes()?;
+        let runtime = if self.runtime.allow_user_install
+            && matches!(
+                self.runtime.mode,
+                sabine_runtime::RuntimeMode::SharedPreferred
+                    | sabine_runtime::RuntimeMode::SystemPreferred
+            ) {
+            update_user_runtime_with_progress(&self.runtime, |_| {})?
+        } else {
+            resolve_runtime(&self.runtime)?
+        };
+        let host = sabine_host::available_host(runtime.location.path()).ok_or_else(|| {
+            ServiceError::Update(
+                "installed Sabine host is unavailable for runtime validation".into(),
+            )
+        })?;
+        if let Err(error) = sabine_host::smoke_test_runtime(&host, runtime.location.path()) {
+            quarantine_user_runtime(
+                &runtime,
+                &format!(
+                    "probe={}\n{error}",
+                    sabine_host::runtime_probe_fingerprint()
+                ),
+            )?;
+            return Err(ServiceError::Update(error));
+        }
+        Ok(runtime)
     }
 
     pub fn update_app(&self, id: &str) -> ServiceResult<AppUpdateStatus> {

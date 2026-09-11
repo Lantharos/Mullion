@@ -96,7 +96,10 @@ pub fn ensure_ready_with_runtime(
     Ok(ServiceReadyReport {
         login_autostart: policy.login_autostart,
         daemon_running,
-        runtime_version: report.runtime.version,
+        runtime_version: report
+            .runtime
+            .ok_or_else(|| ServiceError::Update(report.update_failures.join("; ")))?
+            .version,
         registered_app,
     })
 }

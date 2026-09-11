@@ -40,6 +40,10 @@ fn user_data_dir() -> PathBuf {
                 .join("Application Support");
         }
     }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    if let Some(path) = std::env::var_os("XDG_DATA_HOME").filter(|path| !path.is_empty()) {
+        return PathBuf::from(path);
+    }
     let home = std::env::var_os("HOME").unwrap_or_else(|| std::ffi::OsString::from("/tmp"));
     PathBuf::from(home).join(".local").join("share")
 }

@@ -371,7 +371,7 @@ pub enum AppUpdateStatus {
 
 #[derive(Clone, Debug)]
 pub struct MaintenanceReport {
-    pub runtime: sabine_runtime::RuntimeInfo,
+    pub runtime: Option<sabine_runtime::RuntimeInfo>,
     pub pruned_runtimes: usize,
     pub registered_apps: usize,
     pub automatic_updates: usize,

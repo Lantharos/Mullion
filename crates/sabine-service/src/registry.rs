@@ -53,8 +53,6 @@ impl SabineService {
         if let Some(message) =
             incompatibility_message(&manifest, crate::install::installed_system_compatibility())
         {
-            registry.apps.remove(&manifest.id);
-            self.save_registry(&registry)?;
             return Err(ServiceError::IncompatibleApp {
                 app_id: manifest.id,
                 message,
@@ -106,24 +104,14 @@ impl SabineService {
             .ok_or_else(|| ServiceError::AppNotFound(id.to_string()))
     }
 
-    pub(crate) fn remove_incompatible_apps(&self) -> ServiceResult<Vec<String>> {
-        let _lock = RegistryLock::acquire(&self.root)?;
-        let mut registry = self.load_registry()?;
+    pub(crate) fn incompatible_apps(&self) -> ServiceResult<Vec<String>> {
         let compatibility = crate::install::installed_system_compatibility();
-        let incompatible = registry
-            .apps
-            .iter()
-            .filter(|(_, app)| incompatibility_message(&app.manifest, compatibility).is_some())
-            .map(|(id, _)| id.clone())
-            .collect::<Vec<_>>();
-        if incompatible.is_empty() {
-            return Ok(incompatible);
-        }
-        for id in &incompatible {
-            registry.apps.remove(id);
-        }
-        self.save_registry(&registry)?;
-        Ok(incompatible)
+        Ok(self
+            .apps()?
+            .into_iter()
+            .filter(|app| incompatibility_message(&app.manifest, compatibility).is_some())
+            .map(|app| app.manifest.id)
+            .collect())
     }
 
     pub fn runtime(&self) -> ServiceResult<RuntimeInfo> {

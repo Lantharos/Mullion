@@ -222,7 +222,11 @@ adopted or reused.
 The dedicated `sabine-service-daemon` owns its PID file and maintenance loop. Linux starts it with a
 user systemd unit, macOS with a LaunchAgent, and Windows with a hidden per-user scheduled task; the
 Windows binary uses the GUI subsystem and never creates a console host. The maintenance loop updates
-CEF to the newest compatible archive and keeps two runtime versions.
+CEF to the newest compatible archive and keeps two runtime versions. Runtime failures
+are reported independently from app updates. Incompatible applications remain registered
+so their update source can deliver a compatible build. Maintenance reports retain each
+failure and identify when no usable runtime is available. Linux runtime storage honors
+`XDG_DATA_HOME`, using the same base directory as the service.
 
 ## Public API
 

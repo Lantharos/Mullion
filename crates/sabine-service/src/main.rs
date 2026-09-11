@@ -116,11 +116,18 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             let report = service.maintain()?;
             println!(
                 "runtime={} apps={} automatic_updates={} pruned_runtimes={}",
-                report.runtime.version,
+                report
+                    .runtime
+                    .as_ref()
+                    .map(|runtime| runtime.version.as_str())
+                    .unwrap_or("unavailable"),
                 report.registered_apps,
                 report.automatic_updates,
                 report.pruned_runtimes
             );
+            if !report.update_failures.is_empty() {
+                return Err(report.update_failures.join("; ").into());
+            }
         }
         Command::Register { manifest } => {
             let app = serde_json::from_slice::<AppManifest>(&std::fs::read(manifest)?)?;
