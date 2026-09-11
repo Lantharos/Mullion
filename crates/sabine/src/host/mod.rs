@@ -39,7 +39,16 @@ pub(crate) fn ld_library_path(release_dir: &Path) -> String {
 }
 
 fn user_cache_home() -> PathBuf {
+    #[cfg(target_os = "windows")]
+    if let Some(path) = std::env::var_os("LOCALAPPDATA").filter(|path| !path.is_empty()) {
+        return PathBuf::from(path);
+    }
+    #[cfg(target_os = "macos")]
+    if let Some(home) = std::env::var_os("HOME").filter(|path| !path.is_empty()) {
+        return PathBuf::from(home).join("Library/Caches");
+    }
     std::env::var_os("XDG_CACHE_HOME")
+        .filter(|path| !path.is_empty())
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".cache")))
         .unwrap_or_else(std::env::temp_dir)

@@ -58,7 +58,7 @@ pub(crate) fn apply_browser_launch_args(
         #[cfg(target_os = "linux")]
         {
             let mut features = vec!["UseOzonePlatform"];
-            command.arg("--ozone-platform=wayland");
+            command.arg(format!("--ozone-platform={}", linux_ozone_platform()));
             command.arg("--disable-vulkan");
             if options.vaapi_hardware_decode {
                 features.push("VaapiVideoDecoder");
@@ -93,11 +93,25 @@ pub(crate) fn apply_browser_launch_args(
         .arg("--disable-crash-reporter")
         .arg("--metrics-recording-only")
         .arg("--no-default-browser-check")
-        .arg("--no-first-run")
-        .arg("--password-store=basic");
+        .arg("--no-first-run");
     if let Some(port) = options.effective_remote_devtools_port(dev_mode) {
         command.arg(format!("--remote-debugging-port={port}"));
-        command.arg("--remote-allow-origins=*");
+    }
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) fn linux_ozone_platform() -> &'static str {
+    if [
+        "WAYLAND_DISPLAY",
+        "WAYLAND_SOCKET",
+        crate::osr::wayland_broker::BROKER_FD_ENV,
+    ]
+    .iter()
+    .any(|key| std::env::var_os(key).is_some_and(|value| !value.is_empty()))
+    {
+        "wayland"
+    } else {
+        "x11"
     }
 }
 

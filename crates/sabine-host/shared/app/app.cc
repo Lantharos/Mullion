@@ -185,7 +185,6 @@ void SabineApp::OnBeforeCommandLineProcessing(
   }
   command_line->AppendSwitchWithValue("disable-features", disabled);
 
-  command_line->AppendSwitchWithValue("password-store", "basic");
   if (command_line->HasSwitch("sabine-transparent")) {
     command_line->AppendSwitch("enable-transparent-visuals");
     command_line->AppendSwitch("transparent-painting-enabled");

@@ -398,7 +398,7 @@ pub fn service_data_dir() -> PathBuf {
             .join("Application Support")
             .join("Sabine");
     }
-    if let Some(path) = std::env::var_os("XDG_DATA_HOME") {
+    if let Some(path) = std::env::var_os("XDG_DATA_HOME").filter(|path| !path.is_empty()) {
         return PathBuf::from(path).join("sabine");
     }
     let home = std::env::var_os("HOME").unwrap_or_else(|| "/tmp".into());

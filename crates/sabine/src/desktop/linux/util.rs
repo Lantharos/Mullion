@@ -45,14 +45,14 @@ pub(super) fn sanitize_with(value: &str, valid: impl Fn(char) -> bool) -> String
 }
 
 pub(super) fn config_home() -> io::Result<PathBuf> {
-    if let Some(path) = env::var_os("XDG_CONFIG_HOME") {
+    if let Some(path) = env::var_os("XDG_CONFIG_HOME").filter(|path| !path.is_empty()) {
         return Ok(PathBuf::from(path));
     }
     Ok(home_dir()?.join(".config"))
 }
 
 pub(super) fn data_home() -> io::Result<PathBuf> {
-    if let Some(path) = env::var_os("XDG_DATA_HOME") {
+    if let Some(path) = env::var_os("XDG_DATA_HOME").filter(|path| !path.is_empty()) {
         return Ok(PathBuf::from(path));
     }
     Ok(home_dir()?.join(".local/share"))

@@ -344,10 +344,10 @@ pub(crate) fn cef_osr_command(
     }
     #[cfg(target_os = "linux")]
     {
-        command
-            .arg("--sabine-ozone-platform=wayland")
-            .env("GDK_BACKEND", "wayland")
-            .env("XDG_SESSION_TYPE", "wayland");
+        command.arg(format!(
+            "--sabine-ozone-platform={}",
+            crate::launch::browser::linux_ozone_platform()
+        ));
     }
     // Env remains a fallback for non-handoff launches; the token file is what
     // survives CEF process-singleton relaunch into the primary process.

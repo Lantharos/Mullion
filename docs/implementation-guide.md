@@ -142,8 +142,8 @@ transport branches.
   back to a synchronous CPU readback.
   Slots are isolated by browser and released when that browser closes. The compositor evicts
   retired guest and popup textures and clears page textures during hibernation.
-- **Linux** uses CEF software `OnPaint` on Wayland. The previous DMA-BUF/X11/Vulkan branch was not a
-  valid ownership implementation and has been removed.
+- **Linux** uses CEF software `OnPaint` on Wayland and X11, with GPU composition in the native host.
+  Launch selects the available display connection without rewriting the session type.
 - **macOS** currently uses software `OnPaint`. An IOSurface path must copy or retain CEF's pooled
   resource before the callback returns; passing an IOSurface ID asynchronously is not sufficient.
 
@@ -249,6 +249,12 @@ are reported independently from app updates. Incompatible applications remain re
 so their update source can deliver a compatible build. Maintenance reports retain each
 failure and identify when no usable runtime is available. Linux runtime storage honors
 `XDG_DATA_HOME`, using the same base directory as the service.
+The user systemd unit follows `XDG_CONFIG_HOME` and preserves custom data, config, and cache paths.
+Executable paths containing spaces or systemd specifier characters are quoted.
+
+Browser profiles live under the native per-user cache location: `LOCALAPPDATA` on Windows,
+`~/Library/Caches` on macOS, and `XDG_CACHE_HOME` on Linux. Sabine lets Chromium select the platform
+credential store. Remote DevTools remains opt-in and uses Chromium's origin restrictions.
 
 ## Public API
 

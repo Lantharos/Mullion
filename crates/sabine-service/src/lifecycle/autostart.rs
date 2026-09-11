@@ -71,15 +71,14 @@ pub fn install_login_autostart_with(executable: &Path) -> ServiceResult<()> {
     }
     #[cfg(target_os = "linux")]
     {
-        let home = std::env::var_os("HOME")
-            .ok_or_else(|| ServiceError::Update("HOME is not set".to_string()))?;
-        let directory = Path::new(&home).join(".config/systemd/user");
+        let directory = systemd_user_directory()?;
         fs::create_dir_all(&directory)?;
         fs::write(
             directory.join("sabine.service"),
             format!(
-                "[Unit]\nDescription=Sabine runtime and app service\n\n[Service]\nExecStart={}\nRestart=on-failure\n\n[Install]\nWantedBy=default.target\n",
-                daemon.display()
+                "[Unit]\nDescription=Sabine runtime and app service\n\n[Service]\nExecStart={}\n{}Restart=on-failure\n\n[Install]\nWantedBy=default.target\n",
+                systemd_quote(&daemon.to_string_lossy()),
+                systemd_environment()
             ),
         )?;
         run_checked(Command::new("systemctl").args(["--user", "daemon-reload"]))?;
@@ -107,7 +106,7 @@ pub fn install_login_autostart_with(executable: &Path) -> ServiceResult<()> {
             &path,
             format!(
                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\"><plist version=\"1.0\"><dict><key>Label</key><string>net.lantharos.sabine</string><key>ProgramArguments</key><array><string>{}</string></array><key>RunAtLoad</key><true/><key>KeepAlive</key><true/></dict></plist>\n",
-                daemon.display()
+                xml_value(&daemon.to_string_lossy())
             ),
         )?;
         let domain = format!("gui/{}", unsafe { libc::getuid() });
@@ -198,10 +197,8 @@ pub fn uninstall_login_autostart() -> ServiceResult<()> {
         let _ = Command::new("systemctl")
             .args(["--user", "disable", "--now", "sabine.service"])
             .status();
-        if let Some(home) = std::env::var_os("HOME") {
-            let path = Path::new(&home).join(".config/systemd/user/sabine.service");
-            let _ = fs::remove_file(path);
-        }
+        let _ = fs::remove_file(systemd_user_directory()?.join("sabine.service"));
+        run_checked(Command::new("systemctl").args(["--user", "daemon-reload"]))?;
     }
     #[cfg(target_os = "macos")]
     if let Some(home) = std::env::var_os("HOME") {
@@ -230,4 +227,54 @@ pub(super) fn run_checked(command: &mut Command) -> ServiceResult<()> {
             "command failed with {status}"
         )))
     }
+}
+
+#[cfg(target_os = "linux")]
+fn systemd_user_directory() -> ServiceResult<std::path::PathBuf> {
+    let config = std::env::var_os("XDG_CONFIG_HOME")
+        .filter(|path| !path.is_empty())
+        .map(std::path::PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("HOME").map(|home| std::path::PathBuf::from(home).join(".config"))
+        })
+        .ok_or_else(|| ServiceError::Update("HOME or XDG_CONFIG_HOME must be set".into()))?;
+    Ok(config.join("systemd/user"))
+}
+
+#[cfg(target_os = "linux")]
+fn systemd_quote(value: &str) -> String {
+    format!(
+        "\"{}\"",
+        value
+            .replace('\\', "\\\\")
+            .replace('\"', "\\\"")
+            .replace('%', "%%")
+            .replace('\n', "\\n")
+            .replace('\r', "\\r")
+    )
+}
+
+#[cfg(target_os = "linux")]
+fn systemd_environment() -> String {
+    ["XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME"]
+        .into_iter()
+        .filter_map(|name| {
+            std::env::var_os(name)
+                .filter(|value| !value.is_empty())
+                .map(|value| {
+                    format!(
+                        "Environment={}\n",
+                        systemd_quote(&format!("{name}={}", value.to_string_lossy()))
+                    )
+                })
+        })
+        .collect()
+}
+
+#[cfg(target_os = "macos")]
+fn xml_value(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
