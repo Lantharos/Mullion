@@ -1,6 +1,5 @@
 use std::{
     process::{Child, Command, ExitStatus},
-    sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
 
@@ -11,8 +10,19 @@ pub(crate) struct ManagedChild {
 }
 
 impl ManagedChild {
-    pub(crate) fn new(child: Child, exited: crossbeam_channel::Sender<u32>) -> Self {
+    pub(crate) fn new(
+        mut child: Child,
+        exited: crossbeam_channel::Sender<u32>,
+    ) -> std::io::Result<Self> {
         let id = child.id();
+        let group = match ProcessGroup::register(id) {
+            Ok(group) => group,
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(error);
+            }
+        };
         let (exit_sender, exit) = crossbeam_channel::bounded(1);
         std::thread::spawn(move || {
             let mut child = child;
@@ -20,11 +30,7 @@ impl ManagedChild {
             let _ = exit_sender.send(status);
             let _ = exited.send(id);
         });
-        Self {
-            id,
-            exit,
-            group: ProcessGroup::register(id),
-        }
+        Ok(Self { id, exit, group })
     }
 
     pub(crate) fn id(&self) -> u32 {
@@ -49,7 +55,7 @@ impl ManagedChild {
             Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
         }
         self.group.kill();
-        let status = self.exit.recv().ok()?.ok();
+        let status = self.exit.recv_timeout(Duration::from_secs(5)).ok()?.ok();
         self.group.unregister();
         status
     }
@@ -76,18 +82,29 @@ pub(crate) fn prepare_detachable_child_command(command: &mut Command) {
     platform::prepare_child_command(command, false);
 }
 
+#[cfg(unix)]
+use std::sync::atomic::{AtomicBool, Ordering};
+
+#[cfg(windows)]
+#[path = "process_tree/windows.rs"]
+mod platform;
+#[cfg(windows)]
+use platform::ProcessGroup;
+
+#[cfg(unix)]
 struct ProcessGroup {
     id: u32,
     active: AtomicBool,
 }
 
+#[cfg(unix)]
 impl ProcessGroup {
-    fn register(id: u32) -> Self {
+    fn register(id: u32) -> std::io::Result<Self> {
         platform::register_process_group(id);
-        Self {
+        Ok(Self {
             id,
             active: AtomicBool::new(true),
-        }
+        })
     }
 
     fn terminate(&self) {
@@ -237,19 +254,4 @@ mod platform {
             kill(-id, signal);
         }
     }
-}
-
-#[cfg(not(unix))]
-mod platform {
-    use std::process::Command;
-
-    pub(super) fn prepare_child_command(_command: &mut Command, _die_with_parent: bool) {}
-
-    pub(super) fn register_process_group(_id: u32) {}
-
-    pub(super) fn unregister_process_group(_id: u32) {}
-
-    pub(super) fn terminate_process_group(_id: u32) {}
-
-    pub(super) fn kill_process_group(_id: u32) {}
 }

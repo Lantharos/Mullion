@@ -79,7 +79,11 @@ pub(crate) fn launch_process(
     let (command_sender, command_receiver) = crossbeam_channel::unbounded();
     Ok(SabineProcess {
         _runtime_lease: runtime_lease,
-        child: ManagedChild::new(child, child_exit_sender.clone()),
+        child: ManagedChild::new(child, child_exit_sender.clone()).map_err(|error| {
+            SabineError::CreationFailed {
+                message: format!("failed to own OSR process: {error}"),
+            }
+        })?,
         primary_alive: true,
         primary_status: None,
         extra_windows: Vec::new(),
@@ -229,9 +233,13 @@ pub(crate) fn attach_open_window(
     if let Some(thread) = thread {
         process.extra_bridge_threads.push(thread);
     }
-    process
-        .extra_windows
-        .push(ManagedChild::new(child, process.child_exit_sender.clone()));
+    process.extra_windows.push(
+        ManagedChild::new(child, process.child_exit_sender.clone()).map_err(|error| {
+            SabineError::CreationFailed {
+                message: format!("failed to own OSR process: {error}"),
+            }
+        })?,
+    );
     Ok(window_id)
 }
 
