@@ -193,6 +193,7 @@ void SabineOsrHandler::OnBeforeClose(CefRefPtr<CefBrowser> browser) {
     }
   }
   if (browsers_.empty()) {
+    CloseTransport();
     UnregisterHandler(this);
     if (g_instance == this) {
       g_instance = nullptr;

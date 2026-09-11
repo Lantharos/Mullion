@@ -48,6 +48,8 @@
 using namespace sabine_osr;
 
 namespace {
+constexpr size_t kMaxControlBytes = 64 * 1024 * 1024;
+constexpr size_t kMaxControlCount = 256;
 
 void PutHeaderU32(std::array<char, 28>* header,
                   size_t offset,
@@ -144,6 +146,7 @@ void SabineOsrHandler::StartCommandReader() {
   CefRefPtr<SabineOsrHandler> self(this);
   std::thread([self, fd] {
     std::string pending;
+    size_t searched = 0;
     char buffer[2048];
     while (true) {
       const int n = recv(
@@ -161,17 +164,77 @@ void SabineOsrHandler::StartCommandReader() {
       }
       pending.append(buffer, static_cast<size_t>(n));
       size_t newline = 0;
-      while ((newline = pending.find('\n')) != std::string::npos) {
+      while ((newline = pending.find('\n', searched)) != std::string::npos) {
+        if (newline >= kMaxControlBytes) {
+          std::fprintf(stderr, "Sabine OSR control exceeded 64 MiB\n");
+          self->CloseTransport();
+          CefPostTask(TID_UI, new CloseOnDisconnectTask(self));
+          return;
+        }
         std::string line = pending.substr(0, newline);
         pending.erase(0, newline + 1);
+        searched = 0;
         if (line.rfind("resize\t", 0) == 0) {
           self->QueueResizeControlLine(std::move(line));
         } else {
-          CefPostTask(TID_UI, new OsrCommandTask(self, std::move(line)));
+          if (!self->QueueControl(std::move(line))) return;
         }
+      }
+      searched = pending.size();
+      if (pending.size() >= kMaxControlBytes) {
+        std::fprintf(stderr, "Sabine OSR control exceeded 64 MiB\n");
+        self->CloseTransport();
+        CefPostTask(TID_UI, new CloseOnDisconnectTask(self));
+        return;
       }
     }
   }).detach();
+}
+
+bool SabineOsrHandler::QueueControl(std::string line) {
+  {
+    std::unique_lock<std::mutex> lock(control_mutex_);
+    control_space_.wait(lock, [&] {
+      return controls_closed_ || (control_count_ < kMaxControlCount &&
+                                  control_bytes_ + line.size() <= kMaxControlBytes);
+    });
+    if (controls_closed_) return false;
+    ++control_count_;
+    control_bytes_ += line.size();
+  }
+  return CefPostTask(TID_UI, new OsrCommandTask(this, std::move(line)));
+}
+
+void SabineOsrHandler::CompleteQueuedControl(size_t bytes) {
+  {
+    std::lock_guard<std::mutex> lock(control_mutex_);
+    --control_count_;
+    control_bytes_ -= bytes;
+  }
+  control_space_.notify_one();
+}
+
+void SabineOsrHandler::HandleQueuedControl(const std::string& line) {
+  CEF_REQUIRE_UI_THREAD();
+  {
+    std::lock_guard<std::mutex> lock(control_mutex_);
+    if (controls_closed_) return;
+  }
+  HandleControlLine(line);
+}
+
+void SabineOsrHandler::CloseTransport() {
+  {
+    std::lock_guard<std::mutex> lock(control_mutex_);
+    controls_closed_ = true;
+  }
+  control_space_.notify_all();
+  if (socket_fd_ < 0) return;
+#ifdef _WIN32
+  shutdown(static_cast<SOCKET>(socket_fd_), SD_BOTH);
+#else
+  shutdown(static_cast<int>(socket_fd_), SHUT_RDWR);
+#endif
 }
 
 void SabineOsrHandler::QueueResizeControlLine(std::string line) {

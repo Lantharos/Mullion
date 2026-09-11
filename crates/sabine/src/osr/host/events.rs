@@ -85,10 +85,16 @@ impl OsrNativeHost {
                             continue;
                         }
                     };
+                    let writer = match crate::osr::control::ControlWriter::start(writer_stream) {
+                        Ok(writer) => writer,
+                        Err(error) => {
+                            let _ = stream.shutdown(std::net::Shutdown::Both);
+                            self.fail(format!("Could not start window controls: {error}"));
+                            continue;
+                        }
+                    };
                     self.socket = Some(std::sync::Arc::new(std::sync::Mutex::new(stream)));
-                    self.control_writer = Some(std::sync::Arc::new(
-                        crate::osr::control::ControlWriter::start(writer_stream),
-                    ));
+                    self.control_writer = Some(std::sync::Arc::new(writer));
                     self.awaiting_connection = false;
                     self.connection_deadline = None;
                     let mut output = std::io::stdout();

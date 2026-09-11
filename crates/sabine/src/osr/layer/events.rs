@@ -286,7 +286,13 @@ impl OsrLayerHost {
                 }
                 self.child_retry_at = None;
                 self.child_handoff_deadline = None;
-                self.control_writer = Some(crate::osr::control::ControlWriter::start(stream));
+                self.control_writer = match crate::osr::control::ControlWriter::start(stream) {
+                    Ok(writer) => Some(writer),
+                    Err(error) => {
+                        sabine_runtime::report_error("osr", error);
+                        return ReturnData::RequestExit;
+                    }
+                };
                 self.last_sent_content_size = None;
                 if !self.visible {
                     self.force_suspend("hidden");

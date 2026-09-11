@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <chrono>
+#include <condition_variable>
 #include <deque>
 #include <functional>
 #include <list>
@@ -192,6 +193,8 @@ class SabineOsrHandler : public CefClient,
   bool QualifyResizeFrame(int pixel_width, int pixel_height);
   void CompleteResizeFrame(int pixel_width, int pixel_height);
   void CloseFromNativeDisconnect();
+  void HandleQueuedControl(const std::string& line);
+  void CompleteQueuedControl(size_t bytes);
   void FinishNativeFileDrag(int x, int y, const std::string& operation);
   void ApplyHostControl(const std::string& command, const std::string& value);
   void ResolveBridgeResponse(const std::string& browser_id,
@@ -214,6 +217,8 @@ class SabineOsrHandler : public CefClient,
   friend class SabineGuestRequestContextHandler;
 
   bool ConnectSocket();
+  bool QueueControl(std::string line);
+  void CloseTransport();
   bool SendMessage(uint32_t kind,
                    uint32_t width,
                    uint32_t height,
@@ -292,6 +297,11 @@ class SabineOsrHandler : public CefClient,
   std::string authentication_token_;
   intptr_t socket_fd_ = -1;
   std::mutex socket_mutex_;
+  std::mutex control_mutex_;
+  std::condition_variable control_space_;
+  size_t control_count_ = 0;
+  size_t control_bytes_ = 0;
+  bool controls_closed_ = false;
   std::mutex resize_mutex_;
   std::string pending_resize_line_;
   bool resize_task_pending_ = false;

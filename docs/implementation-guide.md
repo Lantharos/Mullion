@@ -205,6 +205,10 @@ shared mappings are bounded before allocation or mapping. The native host's pain
 both message count and retained payload memory to 256 MiB. Merging preserves dirty rectangles while
 limiting each merged batch to 256 rectangles and 64 MiB of retained buffers; larger batches remain
 ordered and apply backpressure without dropping damage.
+Control queues are limited to 256 messages and 64 MiB on each side. Pointer motion and
+consecutive state updates coalesce; an ordered-command overflow closes the connection instead
+of silently losing a command. Socket writes have a five-second deadline. CEF applies
+backpressure before posting UI tasks and rejects unterminated control lines at 64 MiB.
 
 | Platform | Transport | Paint path |
 | --- | --- | --- |

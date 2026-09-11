@@ -8,10 +8,12 @@ OsrCommandTask::OsrCommandTask(CefRefPtr<SabineOsrHandler> handler,
                                std::string line)
     : handler_(std::move(handler)), line_(std::move(line)) {}
 
-OsrCommandTask::~OsrCommandTask() = default;
+OsrCommandTask::~OsrCommandTask() {
+  handler_->CompleteQueuedControl(line_.size());
+}
 
 void OsrCommandTask::Execute() {
-  handler_->HandleControlLine(line_);
+  handler_->HandleQueuedControl(line_);
 }
 
 OsrResizeTask::OsrResizeTask(CefRefPtr<SabineOsrHandler> handler)
