@@ -68,8 +68,8 @@ jobs:
           bun-version: latest
       - name: Install web dependencies
         run: bun install --frozen-lockfile
-      - run: rustup toolchain install 1.89 --profile minimal
-      - run: rustup override set 1.89
+      - run: rustup toolchain install 1.90 --profile minimal
+      - run: rustup override set 1.90
       - name: Install Linux packaging dependencies
         if: runner.os == 'Linux'
         run: |
@@ -212,8 +212,8 @@ jobs:
       SABINE_UPDATE_SIGNING_KEY: ${{ secrets.SABINE_UPDATE_SIGNING_KEY }}
     steps:
       - uses: actions/checkout@v6
-      - run: rustup toolchain install 1.89 --profile minimal
-      - run: rustup override set 1.89
+      - run: rustup toolchain install 1.90 --profile minimal
+      - run: rustup override set 1.90
       - name: Install matching Sabine CLI
         run: cargo install --git https://github.com/Lantharos/Sabine --tag "${{ inputs.sabine_version }}" sabine-cli
       - uses: actions/download-artifact@v8

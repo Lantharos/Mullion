@@ -24,7 +24,7 @@ default-members = [
 [workspace.package]
 version = "0.22.0"
 edition = "2024"
-rust-version = "1.89"
+rust-version = "1.90"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Lantharos/Sabine"
 homepage = "https://github.com/Lantharos/Sabine"
@@ -47,7 +47,7 @@ zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2
 tar = { version = "0.4.46", default-features = false }
 bytemuck = { version = "1.25.2", features = ["derive"] }
 cc = "1.4.5"
-crossbeam-channel = "0.5.16"
+crossbeam-channel = "0.5.17"
 ctrlc = "3.5.2"
 dunce = "1.0.5"
 fontconfig = "0.11.0"
@@ -57,7 +57,7 @@ glyphon = "0.12.0"
 icns = { version = "0.4.0", default-features = false, features = ["pngio"] }
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp", "bmp", "ico"] }
 layershellev = { package = "exwlshellev", git = "https://github.com/Lantharos/exwlshelleventloop.git", rev = "12286020d31c6b0b3aab54c9b206ea1a86d144bf" }
-smithay-client-toolkit = "0.20.0"
+smithay-client-toolkit = "0.21.1"
 ksni = { version = "0.3.6", features = ["blocking"] }
 libc = "0.2.189"
 resvg = "0.48.1"
@@ -75,8 +75,8 @@ sha1 = "0.11.0"
 sha2 = "0.11.0"
 thiserror = "2.0.20"
 tokio = { version = "1.53.1", features = ["rt", "sync", "time", "macros"] }
-toml = "1.1.4"
-toml_edit = "0.25.13"
+toml = "1.1.6"
+toml_edit = "0.25.15"
 ureq = "3.4.1"
 base64 = "0.23.1"
 ed25519-dalek = "3.0.0"

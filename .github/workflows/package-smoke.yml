@@ -50,8 +50,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - run: rustup toolchain install 1.89 --profile minimal
-      - run: rustup override set 1.89
+      - run: rustup toolchain install 1.90 --profile minimal
+      - run: rustup override set 1.90
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: package-${{ matrix.target }}

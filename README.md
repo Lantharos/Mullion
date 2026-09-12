@@ -8,6 +8,8 @@ browser engine across every Sabine app on the machine.
 
 ## Install
 
+Building Sabine or an application requires Rust 1.90 or newer. Installed applications do not require Rust.
+
 ```toml
 [dependencies]
 sabine = { git = "https://github.com/Lantharos/Sabine", tag = "v0.1.20" }
