@@ -250,6 +250,8 @@ fn package_msi(
     result: &mut PackageResult,
 ) -> Result<(), String> {
     let wxs = staged.root.join("installer.wxs");
+    let architecture = super::windows::architecture(&staged.binary)?;
+    let actions = super::windows_msi_actions::stage(&staged.root, architecture)?;
     let artifact = artifact_path(app, staged, BundleFormat::Msi, "msi");
     let source_dir = dunce::canonicalize(&staged.app_dir).map_err(|error| error.to_string())?;
     let icon = source_dir.join("resources").join("windows-app.ico");
@@ -261,6 +263,7 @@ fn package_msi(
             &source_dir.display().to_string(),
             &staged.executable,
             icon.as_deref(),
+            &dunce::simplified(&actions).display().to_string(),
         )?,
     )
     .map_err(|error| error.to_string())?;
@@ -269,15 +272,10 @@ fn package_msi(
         let _ = fs::remove_file(artifact.with_extension("wixpdb"));
         run(Command::new("wix")
             .arg("build")
-            .args(["-arch", "x64"])
+            .args(["-arch", &architecture.to_ascii_lowercase()])
             .arg("-wx")
             .args(["-pdbtype", "none"])
-            .args([
-                "-ext",
-                "WixToolset.UI.wixext",
-                "-ext",
-                "WixToolset.Util.wixext",
-            ])
+            .args(["-ext", "WixToolset.UI.wixext"])
             .arg(dunce::simplified(&wxs))
             .arg("-o")
             .arg(dunce::simplified(&artifact)))?;
@@ -288,7 +286,22 @@ fn package_msi(
             &shell_script(&[
                 &mkdir_parent_line(&artifact),
                 &format!(
-                    "wix build -arch x64 -wx -pdbtype none -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext {} -o {}",
+                    "if [ ! -f {} ]; then",
+                    shell_quote(&actions.display().to_string())
+                ),
+                &format!(
+                    "cmake -S {} -B {} -A {architecture}",
+                    shell_quote(&staged.root.join("msi-actions").display().to_string()),
+                    shell_quote(&staged.root.join("msi-actions/build").display().to_string())
+                ),
+                &format!(
+                    "cmake --build {} --config Release",
+                    shell_quote(&staged.root.join("msi-actions/build").display().to_string())
+                ),
+                "fi",
+                &format!(
+                    "wix build -arch {} -wx -pdbtype none -ext WixToolset.UI.wixext {} -o {}",
+                    architecture.to_ascii_lowercase(),
                     shell_quote(&dunce::simplified(&wxs).display().to_string()),
                     shell_quote(&dunce::simplified(&artifact).display().to_string())
                 ),
@@ -306,6 +319,7 @@ fn package_exe(
     staged: &StagedBundle,
     result: &mut PackageResult,
 ) -> Result<(), String> {
+    super::windows::architecture(&staged.binary)?;
     let script = staged.root.join("installer.nsi");
     let artifact = artifact_path(app, staged, BundleFormat::Exe, "exe");
     let icon = staged.app_dir.join("resources/windows-app.ico");

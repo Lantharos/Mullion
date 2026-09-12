@@ -6,6 +6,7 @@ pub(super) fn wix_source(
     staged_app_dir: &str,
     executable: &str,
     icon: Option<&str>,
+    actions_binary: &str,
 ) -> Result<String, String> {
     let version = semver::Version::parse(&app.version).map_err(|error| error.to_string())?;
     if version.major > 255 || version.minor > 255 || version.patch > 65535 {
@@ -47,10 +48,11 @@ pub(super) fn wix_source(
     <UI>
       <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg" Order="2" Condition="NOT Installed"/>
       <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2"/>
-      <ProgressText Action="SabinePrepare" Message="Preparing the shared Sabine runtime"/>
-      <ProgressText Action="SabineUnregister" Message="Removing application registration"/>
+      <ProgressText Action="SabinePrepare" Message="Preparing the shared Sabine runtime" Template="[1]"/>
+      <ProgressText Action="SabineUnregister" Message="Removing application registration" Template="[1]"/>
     </UI>
     <UIRef Id="WixUI_ErrorProgressText"/>
+    <Binary Id="SabineSetupActions" SourceFile="{}"/>
 {}
     <InstallExecuteSequence>
       <Custom Action="SabineRollbackPrepare" Before="SabinePrepare" Condition="NOT Installed"/>
@@ -68,6 +70,7 @@ pub(super) fn wix_source(
         xml(&app.id),
         inventory,
         icon_element,
+        xml(actions_binary),
         actions(),
     ))
 }
@@ -158,7 +161,7 @@ fn actions() -> String {
     .into_iter()
     .map(|(id, argument, execute, result)| format!(
         r#"    <SetProperty Id="{id}" Value="&quot;[#MainExecutableFile]&quot; {argument}" Before="{id}" Sequence="execute"/>
-    <CustomAction Id="{id}" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" DllEntry="WixQuietExec" Execute="{execute}" Impersonate="yes" Return="{result}"/>
+    <CustomAction Id="{id}" BinaryRef="SabineSetupActions" DllEntry="SabineSetup" Execute="{execute}" Impersonate="yes" Return="{result}"/>
 "#
     ))
     .collect()

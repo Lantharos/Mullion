@@ -35,6 +35,9 @@ icns.workspace = true
 toml.workspace = true
 toml_edit.workspace = true
 
+[build-dependencies]
+cc.workspace = true
+
 [target.'cfg(target_os = "linux")'.dependencies]
 fontconfig.workspace = true
 

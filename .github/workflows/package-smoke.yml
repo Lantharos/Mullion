@@ -68,7 +68,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "WiX installation failed" }
           wix eula accept wix7
           if ($LASTEXITCODE -ne 0) { throw "WiX EULA acceptance failed" }
-          wix extension add --global WixToolset.UI.wixext/7.0.0 WixToolset.Util.wixext/7.0.0
+          wix extension add --global WixToolset.UI.wixext/7.0.0
           if ($LASTEXITCODE -ne 0) { throw "WiX extension installation failed; check WiX EULA acceptance" }
       - name: Install Windows setup tools
         if: runner.os == 'Windows'
@@ -154,6 +154,9 @@ jobs:
             throw "Windows executable is not marked as a GUI application"
           }
           $log = Join-Path $env:RUNNER_TEMP "sabine-msi-install.log"
+          Test-MsiCancellation $msi[0].FullName $log
+          $appDir = Join-Path $env:LOCALAPPDATA 'Programs/dev.sabine.release-probe'
+          if (Test-Path (Join-Path $appDir 'release-probe.exe')) { throw 'Cancelled MSI retained installed application files' }
           $install = Start-Process msiexec.exe -ArgumentList @('/i', $msi[0].FullName, '/qn', '/norestart', '/l*v', $log) -PassThru
           Wait-InstallerExit $install
           if ($install.ExitCode -ne 0) {

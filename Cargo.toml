@@ -46,6 +46,7 @@ flate2 = "1.1.10"
 zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2", "deflate64", "bzip2", "lzma", "xz", "zstd"] }
 tar = { version = "0.4.46", default-features = false }
 bytemuck = { version = "1.25.2", features = ["derive"] }
+cc = "1.4.5"
 crossbeam-channel = "0.5.16"
 ctrlc = "3.5.2"
 dunce = "1.0.5"

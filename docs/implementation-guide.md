@@ -632,3 +632,9 @@ the replacement with a recoverable journal. Failed registration restores both fi
 an interrupted replacement is recovered on the next setup attempt. Obsolete packaged files are
 removed. Cancel stops preparation or rolls back staging, returning Windows Installer cancellation
 code 1602. Choose an empty directory when replacing a package from another installation system.
+
+MSI packages embed a native setup action with a static C runtime. It forwards UTF-8 progress to
+Windows Installer, suppresses console windows, and passes cancellation to the app. An unresponsive
+setup process is stopped after 30 seconds of cancellation; the entire action has a one-hour deadline.
+Rollback actions complete restoration without accepting a second cancellation. MSI architecture is
+read from the app’s PE header; x86_64 and ARM64 packages use matching action DLLs.

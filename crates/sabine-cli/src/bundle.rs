@@ -6,6 +6,7 @@ mod package;
 mod stage;
 mod windows;
 mod windows_msi;
+mod windows_msi_actions;
 
 use std::{
     path::PathBuf,

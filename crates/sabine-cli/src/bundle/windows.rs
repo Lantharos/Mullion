@@ -1,5 +1,9 @@
 use super::config::BundleApp;
-use std::{fs, path::Path};
+use std::{
+    fs,
+    io::{Read, Seek, SeekFrom},
+    path::Path,
+};
 
 pub(super) fn nsis_script(
     app: &BundleApp,
@@ -206,4 +210,32 @@ fn escape(value: &str) -> String {
         .replace('"', "$\\\"")
         .replace('\r', "$\\r")
         .replace('\n', "$\\n")
+}
+
+pub(super) fn architecture(binary: &Path) -> Result<&'static str, String> {
+    let mut file = fs::File::open(binary).map_err(|error| error.to_string())?;
+    let mut dos = [0_u8; 64];
+    file.read_exact(&mut dos)
+        .map_err(|error| error.to_string())?;
+    if &dos[..2] != b"MZ" {
+        return Err("Windows packages require a PE executable".into());
+    }
+    let offset = u32::from_le_bytes(dos[60..64].try_into().unwrap());
+    file.seek(SeekFrom::Start(u64::from(offset)))
+        .map_err(|error| error.to_string())?;
+    let mut pe = [0_u8; 26];
+    file.read_exact(&mut pe)
+        .map_err(|error| error.to_string())?;
+    if &pe[..4] != b"PE\0\0" {
+        return Err("Windows executable has an invalid PE signature".into());
+    }
+    let characteristics = u16::from_le_bytes([pe[22], pe[23]]);
+    if characteristics & 0x2002 != 0x0002 || pe[24..26] != [0x0b, 0x02] {
+        return Err("Windows packages require a 64-bit PE application executable".into());
+    }
+    match u16::from_le_bytes([pe[4], pe[5]]) {
+        0x8664 => Ok("x64"),
+        0xaa64 => Ok("ARM64"),
+        _ => Err("Windows packages require an x86_64 or ARM64 executable".into()),
+    }
 }
