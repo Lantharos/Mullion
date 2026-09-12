@@ -100,8 +100,11 @@ pub(super) fn start_socket_reader(
                     return;
                 }
             };
-            if let Err(error) = candidate.set_read_timeout(Some(Duration::from_millis(750))) {
-                eprintln!("Sabine OSR could not set authentication deadline: {error}");
+            if let Err(error) = candidate
+                .set_nonblocking(false)
+                .and_then(|()| candidate.set_read_timeout(Some(Duration::from_millis(750))))
+            {
+                eprintln!("Sabine OSR could not configure authentication socket: {error}");
                 continue;
             }
             match crate::osr::transport::authenticate(&mut candidate, &authentication_token) {

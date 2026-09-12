@@ -255,6 +255,7 @@ impl OsrNativeHost {
                 }
                 super::types::OsrHostEvent::Message(_, OsrMessage::MainLoadStarted) => {
                     self.main_load_ready = false;
+                    self.main_frame_presented = false;
                     if self.config.visible && self.loading.is_none() {
                         self.loading = Some(super::types::NativeLoading::new(
                             super::types::LoadingKind::Opening,

@@ -367,6 +367,10 @@ impl OsrNativeHost {
             eprintln!("Sabine OSR render failed: {error}");
             return false;
         }
+        if !self.main_frame_presented && self.main_surface_ready() && self.loading.is_none() {
+            self.main_frame_presented = true;
+            super::trace_host(&self.config, "browser.first_paint");
+        }
         if self.effect_regions_dirty {
             self.effect_regions_dirty = false;
             self.update_effect_regions();

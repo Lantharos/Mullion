@@ -87,6 +87,7 @@ pub(super) struct OsrNativeHost {
     pub(super) effect_regions_dirty: bool,
     pub(super) activity_hibernation_blockers: BTreeSet<String>,
     pub(super) presented: bool,
+    pub(super) main_frame_presented: bool,
     pub(super) loading: Option<super::types::NativeLoading>,
     pub(super) tooltip: Option<super::types::NativeTooltip>,
     pub(super) pending_activation_token: Option<ActivationToken>,
@@ -177,6 +178,7 @@ impl OsrNativeHost {
             effect_regions_dirty: false,
             activity_hibernation_blockers: BTreeSet::new(),
             presented: false,
+            main_frame_presented: false,
             loading: visible
                 .then(|| super::types::NativeLoading::new(super::types::LoadingKind::Opening)),
             tooltip: None,

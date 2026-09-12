@@ -1,3 +1,11 @@
+# Unreleased
+
+- Windows OSR connections switch accepted sockets to blocking reads before authentication,
+  preventing startup disconnections when Chromium pauses between messages.
+- Windows prepares Chromium resource packs beside its runtime DLLs as well as ICU data.
+- Windows installer checks require the installed app to present a Chromium frame and keep
+  its OSR connection alive. Missing resource packs and connection recovery fail validation.
+
 # Sabine 0.26
 
 - Previously downloaded app updates are only offered or installed while their version is newer

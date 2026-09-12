@@ -187,15 +187,15 @@ jobs:
           $repair = Start-Process msiexec.exe -ArgumentList @('/fa', $msi[0].FullName, '/qn', '/norestart', '/l*v', $log) -PassThru
           Wait-InstallerExit $repair
           if ($repair.ExitCode -ne 0) { Get-Content $log -Tail 100; throw "MSI repair failed" }
+          $app = $null
           try {
-            $app = Start-Process $installedExe.FullName -PassThru
-            Start-Sleep -Seconds 8
-            if ($app.HasExited) {
-              throw "installed application exited during launch with code $($app.ExitCode)"
-            }
+            $env:SABINE_TRACE = '1'
+            $appLog = Join-Path $env:RUNNER_TEMP 'sabine-msi-app.log'
+            $app = Start-Process $installedExe.FullName -RedirectStandardError $appLog -PassThru
+            Wait-SabineAppFrame $app $appLog
             Test-SabineBrowser
-            Stop-Process -Id $app.Id -Force
           } finally {
+            if ($null -ne $app -and -not $app.HasExited) { $app.Kill($true); $app.WaitForExit() }
             $uninstall = Start-Process msiexec.exe -ArgumentList @('/x', $msi[0].FullName, '/qn', '/norestart', '/l*v', $log) -PassThru
             Wait-InstallerExit $uninstall
             if ($uninstall.ExitCode -ne 0) { Get-Content $log -Tail 100; throw "MSI uninstall failed" }
@@ -266,12 +266,13 @@ jobs:
             if ((Get-Content $userFile -Raw).Trim() -ne 'Keep my notes') { throw 'Upgrade changed user data' }
             $registered = (Get-Content $registry -Raw | ConvertFrom-Json).apps
             if ($registered.$appId.version -ne '0.1.1') { throw 'Upgrade left the old application registration' }
-            $app = Start-Process (Join-Path $appDir 'release-probe.exe') -PassThru
-            Start-Sleep -Seconds 8
-            if ($app.HasExited) { throw "Installed application exited with code $($app.ExitCode)" }
+            $env:SABINE_TRACE = '1'
+            $appLog = Join-Path $env:RUNNER_TEMP 'sabine-exe-app.log'
+            $app = Start-Process (Join-Path $appDir 'release-probe.exe') -RedirectStandardError $appLog -PassThru
+            Wait-SabineAppFrame $app $appLog
             Test-SabineBrowser
           } finally {
-            if ($null -ne $app -and -not $app.HasExited) { Stop-Process -Id $app.Id -Force }
+            if ($null -ne $app -and -not $app.HasExited) { $app.Kill($true); $app.WaitForExit() }
             $uninstaller = Join-Path $appDir 'Uninstall.exe'
             if (Test-Path $uninstaller) {
               $process = Start-Process $uninstaller -ArgumentList '/S' -PassThru
@@ -294,7 +295,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: installer-logs-${{ matrix.target }}
-          path: ${{ runner.temp }}/sabine-msi-*.log
+          path: |
+            ${{ runner.temp }}/sabine-msi-*.log
+            ${{ runner.temp }}/sabine-exe-*.log
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v7
         with:

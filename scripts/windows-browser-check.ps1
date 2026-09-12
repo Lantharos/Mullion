@@ -1,3 +1,30 @@
+function Assert-SabineBrowserDiagnostics([string] $Diagnostics) {
+    if ($Diagnostics -match 'Invalid file descriptor to ICU|Failed to load [^\r\n]*\.pak|socket read failed|recovering surface|The browser stopped repeatedly') {
+        throw "Browser startup diagnostics report a failure: $Diagnostics"
+    }
+}
+
+function Wait-SabineAppFrame([Diagnostics.Process] $Application, [string] $LogPath) {
+    $deadline = (Get-Date).AddSeconds(60)
+    $firstPaint = $null
+    while ((Get-Date) -lt $deadline) {
+        $diagnostics = if (Test-Path $LogPath) { [IO.File]::ReadAllText($LogPath) } else { '' }
+        Assert-SabineBrowserDiagnostics $diagnostics
+        if ($Application.HasExited) {
+            throw "Installed app exited with code $($Application.ExitCode): $diagnostics"
+        }
+        if ($null -eq $firstPaint -and $diagnostics -match 'osr-host pid=\d+ browser\.first_paint') {
+            $firstPaint = Get-Date
+        }
+        if ($null -ne $firstPaint -and ((Get-Date) - $firstPaint).TotalSeconds -ge 5) {
+            Write-Host 'Installed application presented its Chromium frame and kept its OSR connection alive'
+            return
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    throw "Installed app did not present its Chromium frame: $diagnostics"
+}
+
 function Test-SabineBrowser {
     $sabineData = Join-Path $env:LOCALAPPDATA 'Sabine'
     $current = Get-Content (Join-Path $sabineData 'bin/current.json') -Raw | ConvertFrom-Json
@@ -32,6 +59,7 @@ function Test-SabineBrowser {
         if ($browser.ExitCode -ne 0) {
             throw "Chromium rendering failed ($($browser.ExitCode)): $($output.Result) $($errors.Result)"
         }
+        Assert-SabineBrowserDiagnostics $errors.Result
         Write-Host 'Installed Chromium rendered and verified its probe page'
     } finally {
         if (-not $browser.HasExited) { $browser.Kill($true); $browser.WaitForExit() }
