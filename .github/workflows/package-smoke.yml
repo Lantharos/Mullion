@@ -2,40 +2,48 @@ name: Package smoke test
 
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: Package format to validate
+        type: choice
+        default: all
+        options: [all, exe, msi, dmg, appimage, deb, rpm]
 
 permissions:
   contents: read
 
 jobs:
+  targets:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+    steps:
+      - id: select
+        env:
+          PACKAGE_TARGET: ${{ inputs.target }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os
+          targets = [
+              {'os': 'windows-latest', 'target': 'msi', 'update_target': 'windows-x86_64-msi', 'extension': '.msi'},
+              {'os': 'windows-latest', 'target': 'exe', 'update_target': 'windows-x86_64-exe', 'extension': '.exe'},
+              {'os': 'macos-15', 'target': 'dmg', 'update_target': 'macos-aarch64-dmg', 'extension': '.dmg'},
+              {'os': 'ubuntu-24.04', 'target': 'appimage', 'update_target': 'linux-x86_64-appimage', 'extension': '.AppImage'},
+              {'os': 'ubuntu-24.04', 'target': 'deb', 'update_target': 'linux-x86_64-deb', 'extension': '.deb'},
+              {'os': 'ubuntu-24.04', 'target': 'rpm', 'update_target': 'linux-x86_64-rpm', 'extension': '.rpm'},
+          ]
+          selected = os.environ['PACKAGE_TARGET']
+          if selected != 'all':
+              targets = [target for target in targets if target['target'] == selected]
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              print('matrix=' + json.dumps({'include': targets}), file=output)
+          PYTHON
   package:
+    needs: targets
+    timeout-minutes: 45
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            target: msi
-            update_target: windows-x86_64-msi
-            extension: .msi
-          - os: windows-latest
-            target: exe
-            update_target: windows-x86_64-exe
-            extension: .exe
-          - os: macos-15
-            target: dmg
-            update_target: macos-aarch64-dmg
-            extension: .dmg
-          - os: ubuntu-24.04
-            target: appimage
-            update_target: linux-x86_64-appimage
-            extension: .AppImage
-          - os: ubuntu-24.04
-            target: deb
-            update_target: linux-x86_64-deb
-            extension: .deb
-          - os: ubuntu-24.04
-            target: rpm
-            update_target: linux-x86_64-rpm
-            extension: .rpm
+      matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
@@ -114,6 +122,7 @@ jobs:
         if: matrix.target == 'msi'
         shell: pwsh
         run: |
+          . ./scripts/windows-package-check.ps1
           $msi = @(Get-ChildItem dist/artifacts -Filter *.msi -File)
           $stagedExe = @(Get-ChildItem dist/msi -Filter release-probe.exe -File -Recurse)
           if ($msi.Count -ne 1 -or $stagedExe.Count -ne 1) {
@@ -134,7 +143,8 @@ jobs:
             throw "MSI shortcut icon metadata is missing"
           }
           $log = Join-Path $env:RUNNER_TEMP "sabine-msi-install.log"
-          $install = Start-Process msiexec.exe -ArgumentList @('/i', $msi[0].FullName, '/qn', '/norestart', '/l*v', $log) -Wait -PassThru
+          $install = Start-Process msiexec.exe -ArgumentList @('/i', $msi[0].FullName, '/qn', '/norestart', '/l*v', $log) -PassThru
+          Wait-InstallerExit $install
           if ($install.ExitCode -ne 0) {
             Get-Content $log -Tail 100
             throw "MSI installation failed with exit code $($install.ExitCode)"
@@ -149,7 +159,8 @@ jobs:
           if (-not $registered.PSObject.Properties['dev.sabine.release-probe']) {
             throw "MSI finished without preparing and registering the application"
           }
-          $repair = Start-Process msiexec.exe -ArgumentList @('/fa', $msi[0].FullName, '/qn', '/norestart', '/l*v', $log) -Wait -PassThru
+          $repair = Start-Process msiexec.exe -ArgumentList @('/fa', $msi[0].FullName, '/qn', '/norestart', '/l*v', $log) -PassThru
+          Wait-InstallerExit $repair
           if ($repair.ExitCode -ne 0) { Get-Content $log -Tail 100; throw "MSI repair failed" }
           try {
             $app = Start-Process $installedExe.FullName -PassThru
@@ -159,7 +170,8 @@ jobs:
             }
             Stop-Process -Id $app.Id -Force
           } finally {
-            $uninstall = Start-Process msiexec.exe -ArgumentList @('/x', $msi[0].FullName, '/qn', '/norestart', '/l*v', $log) -Wait -PassThru
+            $uninstall = Start-Process msiexec.exe -ArgumentList @('/x', $msi[0].FullName, '/qn', '/norestart', '/l*v', $log) -PassThru
+            Wait-InstallerExit $uninstall
             if ($uninstall.ExitCode -ne 0) { Get-Content $log -Tail 100; throw "MSI uninstall failed" }
             $registered = (Get-Content $registry -Raw | ConvertFrom-Json).apps
             if ($registered.PSObject.Properties['dev.sabine.release-probe']) { throw "MSI left the app registered" }
@@ -187,6 +199,7 @@ jobs:
         if: matrix.target == 'exe'
         shell: pwsh
         run: |
+          . ./scripts/windows-package-check.ps1
           $setup = Get-ChildItem dist/artifacts -Filter *.exe -File | Select-Object -First 1
           $appId = 'dev.sabine.release-probe'
           $appDir = Join-Path $env:LOCALAPPDATA "Programs/$appId"
@@ -195,7 +208,8 @@ jobs:
           $app = $null
           try {
             foreach ($operation in @('install', 'repair')) {
-              $process = Start-Process $setup.FullName -ArgumentList '/S' -Wait -PassThru
+              $process = Start-Process $setup.FullName -ArgumentList '/S' -PassThru
+              Wait-InstallerExit $process
               if ($process.ExitCode -ne 0) {
                 if (Test-Path $logs) { Get-Content $logs -Tail 30 }
                 throw "Setup $operation failed with code $($process.ExitCode)"
@@ -212,7 +226,8 @@ jobs:
             if ($null -ne $app -and -not $app.HasExited) { Stop-Process -Id $app.Id -Force }
             $uninstaller = Join-Path $appDir 'Uninstall.exe'
             if (Test-Path $uninstaller) {
-              $process = Start-Process $uninstaller -ArgumentList '/S' -Wait -PassThru
+              $process = Start-Process $uninstaller -ArgumentList '/S' -PassThru
+              Wait-InstallerExit $process
               if ($process.ExitCode -ne 0) { throw "Uninstall failed with code $($process.ExitCode)" }
               for ($attempt = 0; $attempt -lt 100 -and (Test-Path $uninstaller); $attempt++) {
                 Start-Sleep -Milliseconds 100
