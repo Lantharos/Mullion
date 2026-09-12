@@ -1,7 +1,5 @@
-use serde::{Deserialize, Serialize};
 use std::{
-    fs::{self, OpenOptions},
-    io::Write,
+    fs,
     path::{Path, PathBuf},
     process::{Command, Stdio},
     time::Duration,
@@ -21,7 +19,9 @@ use super::autostart::{run_checked, systemd_daemon_matches};
 #[cfg(target_os = "macos")]
 use super::autostart::unload_macos_daemon;
 
-const DAEMON_STATE_FILE: &str = "daemon-state.json";
+mod ownership;
+
+use ownership::{DAEMON_STATE_FILE, claim_daemon_pid, daemon_state};
 
 pub fn ensure_daemon_running() -> ServiceResult<bool> {
     let service = ensure_service_executable(|_| {})?;
@@ -412,80 +412,6 @@ fn wait_for_process_exit(pid: u32) {
     while process_alive(pid as i32) {
         std::thread::sleep(Duration::from_millis(100));
     }
-}
-
-struct DaemonPid {
-    path: PathBuf,
-    state_path: PathBuf,
-    pid: u32,
-}
-
-impl Drop for DaemonPid {
-    fn drop(&mut self) {
-        let owns_file = fs::read_to_string(&self.path)
-            .ok()
-            .and_then(|value| value.trim().parse::<u32>().ok())
-            == Some(self.pid);
-        if owns_file {
-            let _ = fs::remove_file(&self.path);
-        }
-        let owns_state = daemon_state().is_some_and(|state| state.pid == self.pid);
-        if owns_state {
-            let _ = fs::remove_file(&self.state_path);
-        }
-    }
-}
-
-fn claim_daemon_pid() -> ServiceResult<Option<DaemonPid>> {
-    fs::create_dir_all(service_data_dir())?;
-    let path = service_data_dir().join(PID_FILE);
-    let pid = std::process::id();
-    loop {
-        match OpenOptions::new().write(true).create_new(true).open(&path) {
-            Ok(mut file) => {
-                write!(file, "{pid}")?;
-                file.sync_all()?;
-                let state_path = service_data_dir().join(DAEMON_STATE_FILE);
-                let state = DaemonState {
-                    pid,
-                    version: crate::SABINE_VERSION.to_string(),
-                };
-                fs::write(
-                    &state_path,
-                    serde_json::to_vec(&state).expect("daemon state is serializable"),
-                )?;
-                return Ok(Some(DaemonPid {
-                    path,
-                    state_path,
-                    pid,
-                }));
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                let existing = fs::read_to_string(&path)
-                    .ok()
-                    .and_then(|value| value.trim().parse::<i32>().ok());
-                if existing.is_some_and(process_alive) {
-                    return Ok(None);
-                }
-                match fs::remove_file(&path) {
-                    Ok(()) => {}
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                    Err(error) => return Err(error.into()),
-                }
-            }
-            Err(error) => return Err(error.into()),
-        }
-    }
-}
-
-#[derive(Deserialize, Serialize)]
-struct DaemonState {
-    pid: u32,
-    version: String,
-}
-
-fn daemon_state() -> Option<DaemonState> {
-    serde_json::from_slice(&fs::read(service_data_dir().join(DAEMON_STATE_FILE)).ok()?).ok()
 }
 
 pub fn resolve_service_executable() -> ServiceResult<PathBuf> {

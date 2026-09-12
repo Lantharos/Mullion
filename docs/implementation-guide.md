@@ -2,6 +2,10 @@
 
 This document describes the current architecture and the boundaries contributors should preserve.
 
+The maintenance daemon holds an operating-system file lock for its lifetime. Its PID and version
+files are diagnostic metadata; simultaneous launches cannot become competing owners, and a killed
+daemon releases the lock automatically so the next launch can replace stale metadata.
+
 ## Generated applications
 
 `sabine new` creates a Vite app with TypeScript checking in `bun run build` and a separate
