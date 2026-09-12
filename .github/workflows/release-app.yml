@@ -212,7 +212,7 @@ jobs:
         if: always() && runner.os == 'Windows'
         uses: actions/upload-artifact@v7
         with:
-          name: windows-startup-logs
+          name: startup-diagnostics
           path: ${{ runner.temp }}/sabine-msi-*.log
           if-no-files-found: ignore
       - name: Name release asset
@@ -244,6 +244,7 @@ jobs:
         run: cargo install --git https://github.com/Lantharos/Sabine --tag "${{ inputs.sabine_version }}" --locked sabine-cli
       - uses: actions/download-artifact@v8
         with:
+          pattern: "{linux,windows,macos}-*"
           path: release
       - name: Generate updater manifest
         shell: pwsh
