@@ -9,6 +9,14 @@ This document describes the current architecture and the boundaries contributors
 local file. Rust and JavaScript dependencies reference the CLI’s Sabine release tag; generated
 projects do not depend on a checkout on the machine that built the CLI.
 
+## Browser sandbox
+
+On macOS, every Chromium helper initializes the sandbox from the selected runtime’s
+`Libraries/libcef_sandbox.dylib` before loading the Chromium framework. Sandbox initialization
+failure stops the helper. The shared host bundle stays unchanged, including its signature.
+Windows bootstrap integration and Linux namespace setup are still pending; those hosts currently
+run with the Chromium process sandbox disabled.
+
 ## Release and update model
 
 Sabine publishes the CLI, service, daemon, and prebuilt CEF host as one `vMAJOR.BUILD` release train.

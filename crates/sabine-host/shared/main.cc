@@ -60,7 +60,9 @@ int RunSabineHost(CefMainArgs main_args, int argc, char* argv[]) {
 #endif
 
   CefSettings settings;
+#if !defined(OS_MAC)
   settings.no_sandbox = true;
+#endif
   settings.windowless_rendering_enabled = true;
 
   const std::string framework_dir_path =
