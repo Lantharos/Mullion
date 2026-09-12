@@ -78,7 +78,9 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           dotnet tool install --global wix --version 7.0.0
+          if ($LASTEXITCODE -ne 0) { throw "WiX installation failed" }
           wix extension add --global WixToolset.UI.wixext/7.0.0 WixToolset.Util.wixext/7.0.0
+          if ($LASTEXITCODE -ne 0) { throw "WiX extension installation failed; check WiX EULA acceptance" }
           choco install imagemagick --yes --no-progress
           $magick = Get-ChildItem "$env:ProgramFiles\ImageMagick-*\magick.exe" | Select-Object -First 1
           if ($null -eq $magick) {

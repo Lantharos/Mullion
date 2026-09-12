@@ -8,7 +8,7 @@ pub(super) fn nsis_script(
     output: &str,
     icon: Option<&str>,
 ) -> Result<String, String> {
-    let source = source.canonicalize().map_err(|error| error.to_string())?;
+    let source = dunce::canonicalize(source).map_err(|error| error.to_string())?;
     let name = escape(&app.name);
     let id = escape(&app.id);
     let executable = escape(executable);
@@ -17,8 +17,8 @@ pub(super) fn nsis_script(
         .map(|path| {
             format!(
                 "Icon \"{}\"\nUninstallIcon \"{}\"",
-                escape(path),
-                escape(path)
+                escape(&dunce::simplified(Path::new(path)).to_string_lossy()),
+                escape(&dunce::simplified(Path::new(path)).to_string_lossy())
             )
         })
         .unwrap_or_default();
@@ -50,7 +50,7 @@ Section "Install"
   SetShellVarContext current
   ClearErrors
   SetOutPath "$INSTDIR"
-  File /r "{source}/*"
+  File /r "{source}"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   IfErrors setup_failed
   WriteRegStr HKCU "Software\{id}" "InstallDir" "$INSTDIR"
@@ -100,8 +100,8 @@ unregister_done:
   DeleteRegKey HKCU "Software\{id}"
 SectionEnd
 "#,
-        output = escape(output),
-        source = escape(&source.display().to_string()),
+        output = escape(&dunce::simplified(Path::new(output)).to_string_lossy()),
+        source = escape(&source.join("*").display().to_string()),
         version = escape(&app.version),
     ))
 }

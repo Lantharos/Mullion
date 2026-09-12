@@ -106,7 +106,7 @@ fn package_rpm(
         fs::create_dir_all(&rpm_dir).map_err(|error| error.to_string())?;
         let spec = fs::canonicalize(&spec).map_err(|error| error.to_string())?;
         let rpm_dir = fs::canonicalize(&rpm_dir).map_err(|error| error.to_string())?;
-        let source_dir = fs::canonicalize(&staged.app_dir).map_err(|error| error.to_string())?;
+        let source_dir = dunce::canonicalize(&staged.app_dir).map_err(|error| error.to_string())?;
         let buildroot = fs::canonicalize(&staged.root)
             .map_err(|error| error.to_string())?
             .join("rpm-buildroot");
@@ -251,7 +251,7 @@ fn package_msi(
 ) -> Result<(), String> {
     let wxs = staged.root.join("installer.wxs");
     let artifact = artifact_path(app, staged, BundleFormat::Msi, "msi");
-    let source_dir = fs::canonicalize(&staged.app_dir).map_err(|error| error.to_string())?;
+    let source_dir = dunce::canonicalize(&staged.app_dir).map_err(|error| error.to_string())?;
     let icon = source_dir.join("resources/windows-app.ico");
     let icon = icon.is_file().then(|| icon.display().to_string());
     fs::write(
@@ -326,7 +326,7 @@ fn package_exe(
         run(Command::new("makensis")
             .arg("-WX")
             .current_dir(&staged.root)
-            .arg(&script))?;
+            .arg(dunce::simplified(&script)))?;
         if artifact.is_file() {
             result.artifacts.push(artifact);
         } else {

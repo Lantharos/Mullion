@@ -53,11 +53,16 @@ jobs:
             sudo curl --fail --location --output /usr/local/bin/appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
             sudo chmod +x /usr/local/bin/appimagetool
           fi
-      - name: Install Windows packaging dependencies
-        if: runner.os == 'Windows'
+      - name: Install MSI packaging dependencies
+        if: matrix.target == 'msi'
         run: |
           dotnet tool install --global wix --version 7.0.0
+          if ($LASTEXITCODE -ne 0) { throw "WiX installation failed" }
           wix extension add --global WixToolset.UI.wixext/7.0.0 WixToolset.Util.wixext/7.0.0
+          if ($LASTEXITCODE -ne 0) { throw "WiX extension installation failed; check WiX EULA acceptance" }
+      - name: Install Windows icon and setup tools
+        if: runner.os == 'Windows'
+        run: |
           choco install imagemagick nsis --yes --no-progress
           "${env:ProgramFiles(x86)}\NSIS" >> $env:GITHUB_PATH
           $magick = Get-ChildItem "$env:ProgramFiles\ImageMagick-*\magick.exe" | Select-Object -First 1

@@ -19,6 +19,7 @@ path = "src/main.rs"
 [dependencies]
 clap.workspace = true
 ctrlc.workspace = true
+dunce.workspace = true
 sabine-host.workspace = true
 sabine-runtime.workspace = true
 sabine-service.workspace = true
