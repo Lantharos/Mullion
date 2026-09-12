@@ -47,8 +47,8 @@ pub(super) fn wix_source(
     <UI>
       <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg" Order="2" Condition="NOT Installed"/>
       <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2"/>
-      <ProgressText Action="SabinePrepare">Preparing the shared Sabine runtime</ProgressText>
-      <ProgressText Action="SabineUnregister">Removing application registration</ProgressText>
+      <ProgressText Action="SabinePrepare" Message="Preparing the shared Sabine runtime"/>
+      <ProgressText Action="SabineUnregister" Message="Removing application registration"/>
     </UI>
     <UIRef Id="WixUI_ErrorProgressText"/>
 {}
