@@ -518,6 +518,18 @@ consume that queue. Subscribe to `events.openUrlsAvailable()` before the initial
 received during page startup are retained. The queue holds up to 128 URLs, each at most 32 KiB;
 excess requests produce a desktop diagnostic. Applications decide how to handle each URL.
 
+For browser extension integration, `NativeMessagingHost.id` is the exact host name passed to
+`connectNative` on every platform, and `name` is its human-readable description. Host IDs contain
+lowercase letters, digits, underscores, and single dots between nonempty components. Sabine
+rejects invalid IDs instead of renaming them. The executable must exist and is recorded with an
+absolute path.
+
+Set `allowed_origins` to the Chromium extensions' exact `chrome-extension://<id>/` origins, and
+`allowed_extensions` to Firefox add-on IDs such as `my-extension@example.org`. These produce
+separate browser manifests; an empty list grants no extensions access. Registrations are per-user
+for Chrome, Chromium, Edge, Brave, and Firefox. On Windows, each browser's registry key points to
+its corresponding manifest.
+
 ## Bundles and installs
 
 The CLI reads `Sabine.toml`, builds web assets and the selected Rust package, writes a normalized

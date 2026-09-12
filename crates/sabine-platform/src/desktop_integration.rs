@@ -121,6 +121,7 @@ pub struct NativeMessagingHost {
     pub name: String,
     pub executable: PathBuf,
     pub allowed_origins: Vec<String>,
+    pub allowed_extensions: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

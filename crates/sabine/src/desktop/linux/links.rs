@@ -75,23 +75,27 @@ fn desktop_exec(value: &str) -> String {
 }
 
 pub(super) fn register_native_messaging_host(host: &NativeMessagingHost) -> io::Result<()> {
-    let name = sanitize_native_host_name(&host.id);
-    let chrome_manifest = native_messaging_manifest(host, &name, "allowed_origins");
-    for browser in ["google-chrome", "chromium", "BraveSoftware/Brave-Browser"] {
-        write_file(
-            config_home()?
+    use crate::desktop::native_messaging::{Manifests, write_manifest};
+    let manifests = Manifests::new(host)?;
+    for browser in [
+        "google-chrome",
+        "chromium",
+        "microsoft-edge",
+        "BraveSoftware/Brave-Browser",
+    ] {
+        write_manifest(
+            &config_home()?
                 .join(browser)
                 .join("NativeMessagingHosts")
-                .join(format!("{name}.json")),
-            &chrome_manifest,
+                .join(format!("{}.json", host.id)),
+            &manifests.chromium,
         )?;
     }
-    let firefox_manifest = native_messaging_manifest(host, &name, "allowed_extensions");
-    write_file(
-        home_dir()?
+    write_manifest(
+        &home_dir()?
             .join(".mozilla/native-messaging-hosts")
-            .join(format!("{name}.json")),
-        &firefox_manifest,
+            .join(format!("{}.json", host.id)),
+        &manifests.firefox,
     )
 }
 
@@ -146,28 +150,6 @@ pub(super) fn set_mime_default(content: &str, scheme: &str, desktop_id: &str) ->
         lines.insert(section_end, value);
     }
     finish_lines(lines)
-}
-
-pub(super) fn native_messaging_manifest(
-    host: &NativeMessagingHost,
-    name: &str,
-    allowed_key: &str,
-) -> String {
-    let allowed = host
-        .allowed_origins
-        .iter()
-        .map(|origin| format!("\"{}\"", json_value(origin)))
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect::<Vec<_>>();
-    format!(
-        "{{\n  \"name\": \"{}\",\n  \"description\": \"{}\",\n  \"path\": \"{}\",\n  \"type\": \"stdio\",\n  \"{}\": [{}]\n}}\n",
-        json_value(name),
-        json_value(&host.name),
-        json_value(&host.executable.display().to_string()),
-        allowed_key,
-        allowed.join(", ")
-    )
 }
 
 pub(super) fn finish_lines(lines: Vec<String>) -> String {

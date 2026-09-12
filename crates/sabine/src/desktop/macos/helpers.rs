@@ -256,47 +256,31 @@ pub(super) fn register_deep_links(registration: &DeepLinkRegistration) -> Result
 }
 
 pub(super) fn register_native_messaging_host(host: &NativeMessagingHost) -> Result<(), String> {
-    let name = sanitize_id(&host.name.to_ascii_lowercase());
-    let manifest_dir = home_dir()?
-        .join("Library")
-        .join("Application Support")
-        .join("sabine")
-        .join("native-messaging");
-    fs::create_dir_all(&manifest_dir).map_err(|error| error.to_string())?;
-    let manifest_path = manifest_dir.join(format!("{name}.json"));
-    let executable = host
-        .executable
-        .canonicalize()
-        .unwrap_or_else(|_| host.executable.clone());
-    let manifest = serde_json::json!({
-        "name": name,
-        "description": host.id,
-        "path": executable,
-        "type": "stdio",
-        "allowed_origins": host.allowed_origins,
-    });
-    fs::write(
-        &manifest_path,
-        serde_json::to_string_pretty(&manifest).map_err(|error| error.to_string())?,
-    )
-    .map_err(|error| error.to_string())?;
-
+    use crate::desktop::native_messaging::{Manifests, write_manifest};
+    let manifests = Manifests::new(host).map_err(|error| error.to_string())?;
+    let support = home_dir()?.join("Library/Application Support");
     for browser in [
-        "Google/Chrome/NativeMessagingHosts",
-        "Chromium/NativeMessagingHosts",
-        "Microsoft Edge/NativeMessagingHosts",
-        "BraveSoftware/Brave-Browser/NativeMessagingHosts",
-        "Mozilla/NativeMessagingHosts",
+        "Google/Chrome",
+        "Chromium",
+        "Microsoft Edge",
+        "BraveSoftware/Brave-Browser",
     ] {
-        let dir = home_dir()?
-            .join("Library")
-            .join("Application Support")
-            .join(browser);
-        fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
-        fs::copy(&manifest_path, dir.join(format!("{name}.json")))
-            .map_err(|error| error.to_string())?;
+        write_manifest(
+            &support
+                .join(browser)
+                .join("NativeMessagingHosts")
+                .join(format!("{}.json", host.id)),
+            &manifests.chromium,
+        )
+        .map_err(|error| error.to_string())?;
     }
-    Ok(())
+    write_manifest(
+        &support
+            .join("Mozilla/NativeMessagingHosts")
+            .join(format!("{}.json", host.id)),
+        &manifests.firefox,
+    )
+    .map_err(|error| error.to_string())
 }
 
 pub(super) fn home_dir() -> Result<PathBuf, String> {

@@ -5,7 +5,7 @@
 
 #![cfg(target_os = "windows")]
 
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf};
 
 use global_hotkey::{
     GlobalHotKeyManager,
@@ -211,45 +211,32 @@ pub(super) fn register_deep_links(registration: &DeepLinkRegistration) -> Result
 }
 
 pub(super) fn register_native_messaging_host(host: &NativeMessagingHost) -> Result<(), String> {
-    let name = sanitize_native_host_name(&host.name);
-    let manifest_dir = local_app_data()?.join("sabine").join("native-messaging");
-    fs::create_dir_all(&manifest_dir).map_err(|error| error.to_string())?;
-    let manifest_path = manifest_dir.join(format!("{name}.json"));
-    let executable = host
-        .executable
-        .canonicalize()
-        .unwrap_or_else(|_| host.executable.clone());
-    let manifest = serde_json::json!({
-        "name": name,
-        "description": host.id,
-        "path": executable,
-        "type": "stdio",
-        "allowed_origins": host.allowed_origins,
-    });
-    fs::write(
-        &manifest_path,
-        serde_json::to_string_pretty(&manifest).map_err(|error| error.to_string())?,
-    )
-    .map_err(|error| error.to_string())?;
-
-    let manifest_str = manifest_path.display().to_string();
+    use crate::desktop::native_messaging::{Manifests, write_manifest};
+    let manifests = Manifests::new(host).map_err(|error| error.to_string())?;
+    let directory = local_app_data()?.join("sabine/native-messaging");
+    let chromium = directory.join("chromium").join(format!("{}.json", host.id));
+    let firefox = directory.join("firefox").join(format!("{}.json", host.id));
+    write_manifest(&chromium, &manifests.chromium).map_err(|error| error.to_string())?;
+    write_manifest(&firefox, &manifests.firefox).map_err(|error| error.to_string())?;
     for browser in [
-        "Software\\Google\\Chrome\\NativeMessagingHosts",
-        "Software\\Chromium\\NativeMessagingHosts",
-        "Software\\Microsoft\\Edge\\NativeMessagingHosts",
-        "Software\\BraveSoftware\\Brave-Browser\\NativeMessagingHosts",
+        r"Software\Google\Chrome\NativeMessagingHosts",
+        r"Software\Chromium\NativeMessagingHosts",
+        r"Software\Microsoft\Edge\NativeMessagingHosts",
+        r"Software\BraveSoftware\Brave-Browser\NativeMessagingHosts",
     ] {
-        let key = format!("{browser}\\{name}");
-        set_registry_string(HKEY_CURRENT_USER, &key, "", &manifest_str)?;
+        set_registry_string(
+            HKEY_CURRENT_USER,
+            &format!(r"{browser}\{}", host.id),
+            "",
+            &chromium.display().to_string(),
+        )?;
     }
-
-    let firefox_dir = roaming_app_data()?
-        .join("Mozilla")
-        .join("NativeMessagingHosts");
-    fs::create_dir_all(&firefox_dir).map_err(|error| error.to_string())?;
-    fs::copy(&manifest_path, firefox_dir.join(format!("{name}.json")))
-        .map_err(|error| error.to_string())?;
-    Ok(())
+    set_registry_string(
+        HKEY_CURRENT_USER,
+        &format!(r"Software\Mozilla\NativeMessagingHosts\{}", host.id),
+        "",
+        &firefox.display().to_string(),
+    )
 }
 
 pub(super) fn set_registry_string(
@@ -328,12 +315,6 @@ pub(super) fn local_app_data() -> Result<PathBuf, String> {
         .ok_or_else(|| "LOCALAPPDATA is required".to_string())
 }
 
-pub(super) fn roaming_app_data() -> Result<PathBuf, String> {
-    std::env::var_os("APPDATA")
-        .map(PathBuf::from)
-        .ok_or_else(|| "APPDATA is required".to_string())
-}
-
 pub(super) fn sanitize_id(value: &str) -> String {
     let sanitized = value
         .chars()
@@ -352,10 +333,6 @@ pub(super) fn sanitize_id(value: &str) -> String {
     } else {
         sanitized
     }
-}
-
-pub(super) fn sanitize_native_host_name(value: &str) -> String {
-    sanitize_id(&value.to_ascii_lowercase())
 }
 
 pub(super) fn wide_null(value: &str) -> Vec<u16> {

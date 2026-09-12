@@ -4,23 +4,9 @@ pub(super) fn desktop_value(value: &str) -> String {
     value.replace(['\n', '\r'], " ")
 }
 
-pub(super) fn json_value(value: &str) -> String {
-    value
-        .replace('\\', "\\\\")
-        .replace('"', "\\\"")
-        .replace('\n', "\\n")
-        .replace('\r', "\\r")
-}
-
 pub(super) fn sanitize_desktop_id(value: &str) -> String {
     sanitize_with(value, |ch| {
         ch.is_ascii_alphanumeric() || matches!(ch, '.' | '-' | '_')
-    })
-}
-
-pub(super) fn sanitize_native_host_name(value: &str) -> String {
-    sanitize_with(&value.to_ascii_lowercase(), |ch| {
-        ch.is_ascii_alphanumeric() || matches!(ch, '_' | '.')
     })
 }
 
