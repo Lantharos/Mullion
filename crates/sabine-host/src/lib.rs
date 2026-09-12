@@ -134,7 +134,10 @@ Use a Minimal or Standard CEF SDK to compile sabine-host; packaged apps should u
 }
 
 pub fn host_is_complete(path: &Path) -> bool {
-    path.is_file() && (!cfg!(windows) || path.with_extension("dll").is_file())
+    path.is_file()
+        && (!cfg!(windows)
+            || (path.with_extension("dll").is_file()
+                && path.with_file_name("chrome_elf.dll").is_file()))
 }
 
 pub fn available_host(runtime_dir: &Path) -> Option<PathBuf> {

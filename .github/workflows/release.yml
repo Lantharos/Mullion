@@ -103,6 +103,7 @@ jobs:
             Copy-Item $env:SABINE_HOST_PATH "release/system/"
             if ($IsWindows) {
               Copy-Item ([IO.Path]::ChangeExtension($env:SABINE_HOST_PATH, '.dll')) "release/system/"
+              Copy-Item (Join-Path (Split-Path $env:SABINE_HOST_PATH) 'chrome_elf.dll') "release/system/"
             }
           }
           Copy-Item "target/release/sabine$suffix" "release/"

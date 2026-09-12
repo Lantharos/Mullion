@@ -13,6 +13,7 @@ pub fn validate_host_protocol(host: &Path, runtime_dir: &Path) -> Result<(), Str
     {
         sabine_runtime::prepare_sandbox_access(host, false)?;
         sabine_runtime::prepare_sandbox_access(&host.with_extension("dll"), false)?;
+        sabine_runtime::prepare_sandbox_access(&host.with_file_name("chrome_elf.dll"), false)?;
     }
     let probe = std::env::temp_dir().join(format!(
         "sabine-host-check-{}-{}",
@@ -26,6 +27,8 @@ pub fn validate_host_protocol(host: &Path, runtime_dir: &Path) -> Result<(), Str
     let _cleanup = crate::TemporaryDirectory(probe.clone());
     let output_path = probe.join("protocol");
     let output = std::fs::File::create(&output_path).map_err(|error| error.to_string())?;
+    let stderr_path = probe.join("stderr");
+    let stderr = std::fs::File::create(&stderr_path).map_err(|error| error.to_string())?;
     let mut command = sabine_runtime::background_command(host);
     let binary_dir = crate::runtime_binary_directory(runtime_dir);
     command
@@ -38,7 +41,7 @@ pub fn validate_host_protocol(host: &Path, runtime_dir: &Path) -> Result<(), Str
         .current_dir(&binary_dir)
         .stdin(Stdio::null())
         .stdout(output)
-        .stderr(Stdio::null());
+        .stderr(stderr);
     crate::apply_runtime_resource_args(&mut command, runtime_dir);
     #[cfg(any(target_os = "linux", target_os = "windows"))]
     {
@@ -60,7 +63,7 @@ pub fn validate_host_protocol(host: &Path, runtime_dir: &Path) -> Result<(), Str
         .spawn()
         .map_err(|error| format!("could not check Sabine host {}: {error}", host.display()))?;
     let deadline = Instant::now() + Duration::from_secs(3);
-    loop {
+    let failure = loop {
         match child.try_wait() {
             Ok(Some(status)) => {
                 let mut version = String::new();
@@ -70,18 +73,36 @@ pub fn validate_host_protocol(host: &Path, runtime_dir: &Path) -> Result<(), Str
                 if status.success() && version.trim() == HOST_PROTOCOL_VERSION {
                     return Ok(());
                 }
-                break;
+                break if status.success() {
+                    format!(
+                        "native protocol {:?} does not match {}",
+                        version.trim(),
+                        HOST_PROTOCOL_VERSION
+                    )
+                } else {
+                    format!("process exited with {status}")
+                };
             }
             Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(5)),
-            _ => {
+            result => {
                 let _ = child.kill();
                 let _ = child.wait();
-                break;
+                break match result {
+                    Err(error) => format!("could not wait for process: {error}"),
+                    _ => "startup check timed out after 3 seconds".to_string(),
+                };
             }
         }
-    }
+    };
+    let diagnostics = std::fs::File::open(stderr_path)
+        .and_then(|file| {
+            let mut bytes = Vec::new();
+            file.take(8192).read_to_end(&mut bytes)?;
+            Ok(String::from_utf8_lossy(&bytes).trim().to_string())
+        })
+        .unwrap_or_default();
     Err(format!(
-        "Sabine host {} uses an incompatible native protocol. Repair or update the shared Sabine installation before launching this app.",
+        "Sabine host {} failed its startup check: {failure}. Repair or update the shared Sabine installation before launching this app.\n{diagnostics}",
         host.display()
     ))
 }

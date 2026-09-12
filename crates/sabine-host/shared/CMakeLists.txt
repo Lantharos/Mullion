@@ -133,6 +133,7 @@ set_target_properties(sabine-host PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE "$
 if(OS_WINDOWS)
   add_custom_command(TARGET sabine-host POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy "${CEF_BINARY_DIR}/bootstrap.exe" "${SABINE_HOST_OUTPUT_DIR}/sabine-host.exe"
+    COMMAND ${CMAKE_COMMAND} -E copy "${CEF_BINARY_DIR}/chrome_elf.dll" "${SABINE_HOST_OUTPUT_DIR}/chrome_elf.dll"
     VERBATIM)
 endif()
 

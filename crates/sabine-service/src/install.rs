@@ -255,6 +255,10 @@ fn seed_managed_install(service: &Path) -> ServiceResult<PathBuf> {
             make_executable(&target)?;
             if cfg!(windows) {
                 fs::copy(source.with_extension("dll"), target.with_extension("dll"))?;
+                fs::copy(
+                    source.with_file_name("chrome_elf.dll"),
+                    target.with_file_name("chrome_elf.dll"),
+                )?;
             }
         }
         sabine_runtime::install_directory(&staging, &destination)?;

@@ -83,6 +83,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "native host preparation failed" }
           Copy-Item $hostPath target/release/sabine-host.exe
           Copy-Item ([IO.Path]::ChangeExtension($hostPath, '.dll')) target/release/sabine-host.dll
+          Copy-Item (Join-Path (Split-Path $hostPath) 'chrome_elf.dll') target/release/chrome_elf.dll
       - name: Generate real app and signing key
         shell: pwsh
         run: |

@@ -97,6 +97,10 @@ pub(super) fn stage_offline_runtime(
                 &host.with_extension("dll"),
                 &binary_dir.join("sabine-host.dll"),
             )?;
+            copy_binary(
+                &host.with_file_name("chrome_elf.dll"),
+                &binary_dir.join("chrome_elf.dll"),
+            )?;
         }
     }
     let runtime_name = runtime
