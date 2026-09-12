@@ -6,6 +6,8 @@
 - Chromium uses D3D11 WARP when the Windows renderer selects a software adapter, including
   virtual machines without GPU acceleration. Hardware adapters retain D3D11, and both paths
   keep shared-texture rendering.
+- Accelerated frames dismiss the loading screen when page loading finishes before the
+  first shared texture arrives.
 - Windows installer checks require the installed app to present a Chromium frame and keep
   its OSR connection alive. Missing resource packs and connection recovery fail validation.
 

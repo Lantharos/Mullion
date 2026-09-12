@@ -254,6 +254,7 @@ impl OsrNativeHost {
                     }
                 }
                 super::types::OsrHostEvent::Message(_, OsrMessage::MainLoadStarted) => {
+                    super::trace_host(&self.config, "browser.load_started");
                     self.main_load_ready = false;
                     self.main_frame_presented = false;
                     if self.config.visible && self.loading.is_none() {
@@ -268,6 +269,7 @@ impl OsrNativeHost {
                     return;
                 }
                 super::types::OsrHostEvent::Message(_, OsrMessage::MainLoadReady) => {
+                    super::trace_host(&self.config, "browser.load_ready");
                     self.main_load_ready = true;
                     if self.main_frame.is_some() {
                         self.loading = None;

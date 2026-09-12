@@ -94,6 +94,9 @@ impl OsrNativeHost {
             OsrSurface::Main => {
                 self.main_buffer.release();
                 self.main_frame = Some(stub);
+                if self.main_load_ready {
+                    self.loading = None;
+                }
                 self.clear_pending_resize_paint();
             }
             OsrSurface::Popup | OsrSurface::Guest(_) => {
