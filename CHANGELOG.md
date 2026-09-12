@@ -1,4 +1,4 @@
-# Unreleased
+# Sabine 0.27
 
 - Windows OSR connections switch accepted sockets to blocking reads before authentication,
   preventing startup disconnections when Chromium pauses between messages.
