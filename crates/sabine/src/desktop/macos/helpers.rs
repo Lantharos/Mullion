@@ -229,7 +229,7 @@ pub(super) fn register_deep_links(registration: &DeepLinkRegistration) -> Result
     let mut declared = std::collections::BTreeSet::new();
     if let Some(types) = types {
         for entry in &types {
-            let Ok(entry) = entry.downcast::<NSDictionary<NSString, AnyObject>>() else {
+            let Ok(entry) = entry.downcast::<NSDictionary>() else {
                 continue;
             };
             let Some(schemes) = entry
