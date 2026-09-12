@@ -1,3 +1,18 @@
+# Sabine 0.26
+
+- Windows prepares ICU data beside the Chromium library before launch, fixing startup crashes
+  reporting an invalid ICU data file descriptor.
+- Host protocol checks allow up to 30 seconds for cold starts on slower machines and virtual
+  machines. Successful checks return immediately.
+- Windows package and app release checks require Chromium to render and verify a probe page,
+  in addition to checking installation and background-service startup.
+- App release workflows accept the application's Rust toolchain and install the dependencies
+  needed to build the matching CLI and publish signed update manifests.
+
+Windows MSI cancellation, installation, repair, browser rendering, and uninstall passed on a
+native Windows runner. Workspace builds, tests, strict Clippy, and Windows cross-compilation
+are required before publishing. The minimum supported app build remains 23.
+
 # Sabine 0.25
 
 Apps built before Sabine 0.23 must be rebuilt before using this shared system. The minimum
