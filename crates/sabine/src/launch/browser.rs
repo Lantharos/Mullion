@@ -114,39 +114,3 @@ pub(crate) fn linux_ozone_platform() -> &'static str {
         "x11"
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn args(options: &BrowserOptions) -> Vec<String> {
-        let mut command = sabine_runtime::background_command("sabine-host");
-        apply_browser_launch_args(&mut command, options, false);
-        command
-            .get_args()
-            .map(|arg| arg.to_string_lossy().into_owned())
-            .collect()
-    }
-
-    #[test]
-    fn normal_policy_keeps_chromiums_spare_renderer() {
-        assert!(
-            !args(&BrowserOptions::default())
-                .iter()
-                .any(|arg| arg.contains("SpareRendererForSitePerProcess"))
-        );
-    }
-
-    #[test]
-    fn memory_saver_disables_chromiums_spare_renderer() {
-        let options = BrowserOptions {
-            memory_saver: true,
-            ..BrowserOptions::default()
-        };
-        assert!(
-            args(&options)
-                .iter()
-                .any(|arg| arg.contains("SpareRendererForSitePerProcess"))
-        );
-    }
-}

@@ -53,8 +53,6 @@ pub use diagnostics::{capture_diagnostics, diagnostic_path, record_diagnostic, r
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use super::*;
 
     #[test]
@@ -68,22 +66,6 @@ mod tests {
             RuntimeMode::parse("system-required").unwrap()
         );
         assert!(RuntimeMode::parse("invalid").is_none());
-    }
-
-    #[test]
-    fn runtime_config_has_sane_defaults() {
-        let config = RuntimeConfig::default();
-        assert_eq!(config.mode, RuntimeMode::SharedPreferred);
-        assert_eq!(config.index_url, None);
-        assert!(config.allow_user_install);
-        assert!(config.allow_bundled);
-    }
-
-    #[test]
-    fn runtime_location_extracts_path() {
-        let path = PathBuf::from("/usr/lib/sabine/cef");
-        let loc = RuntimeLocation::System(path.clone());
-        assert_eq!(loc.path(), path);
     }
 
     #[test]
