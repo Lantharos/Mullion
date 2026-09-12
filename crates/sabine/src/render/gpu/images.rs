@@ -22,6 +22,7 @@ impl GpuRenderer {
         #[cfg(windows)]
         for (_, completed) in self.external_texture_releases.drain() {
             self.queue.on_submitted_work_done(completed);
+            self.submission_poller.notify();
         }
         self.texture_cache.clear();
     }
@@ -331,6 +332,7 @@ impl GpuRenderer {
     fn retire_external_texture(&mut self, id: &str) {
         if let Some(completed) = self.external_texture_releases.remove(id) {
             self.queue.on_submitted_work_done(completed);
+            self.submission_poller.notify();
         }
     }
 

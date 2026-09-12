@@ -183,7 +183,10 @@ backend connection instead of repeatedly initializing graphics drivers.
   before returning. Each destination is opened on the producer's D3D11 device for the copy and on
   wgpu's D3D12 device for composition. The host waits for its GPU copy before publishing the frame;
   the compositor samples the imported texture directly and sends a release acknowledgement only
-  after submitted GPU work stops using it. The producer
+  after submitted GPU work stops using it. A bounded notification channel wakes a completion
+  worker so the last frame also retires while the window is idle or closing. The worker keeps
+  the queue alive through cleanup and sleeps when there is no retirement work. A five-second
+  GPU wait failure triggers device recovery without blocking the window thread. The producer
   never reuses a slot before that acknowledgement. Physical texture dimensions remain separate
   from the visible source rectangle and logical window dimensions at non-integer display scales.
   Mailbox saturation drops an intermediate GPU frame and requests the newest paint; it never falls

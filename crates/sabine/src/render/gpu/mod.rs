@@ -14,6 +14,8 @@ mod health;
 mod image_rects;
 mod images;
 mod instance;
+#[cfg(windows)]
+mod retirement;
 mod text;
 mod vertex_buffer;
 
@@ -57,6 +59,8 @@ pub struct GpuRenderer {
     texture_cache: HashMap<String, CachedTexture>,
     #[cfg(windows)]
     external_texture_releases: HashMap<String, Box<dyn FnOnce() + Send + 'static>>,
+    #[cfg(windows)]
+    submission_poller: retirement::SubmissionPoller,
     scale_factor: f32,
     surface_alpha_is_opaque: bool,
     window: Arc<dyn Window>,
@@ -99,7 +103,7 @@ impl GpuRenderer {
     pub(crate) async fn new(
         window: Arc<dyn Window>,
         transparent: bool,
-        wake: impl Fn() + Send + 'static,
+        wake: impl Fn() + Send + Sync + 'static,
     ) -> Result<Self, RendererError> {
         let size = window.surface_size();
         let instance = instance::shared();
@@ -124,6 +128,8 @@ impl GpuRenderer {
             .map_err(|error| RendererError::Device(error.to_string()))?;
 
         let health = health::DeviceHealth::watch(&device, wake);
+        #[cfg(windows)]
+        let submission_poller = retirement::SubmissionPoller::new(&device, &queue, health.clone())?;
         let capabilities = surface.get_capabilities(&adapter);
         let format = capabilities
             .formats
@@ -253,6 +259,8 @@ impl GpuRenderer {
             texture_cache: HashMap::new(),
             #[cfg(windows)]
             external_texture_releases: HashMap::new(),
+            #[cfg(windows)]
+            submission_poller,
             scale_factor: window.scale_factor() as f32,
             surface_alpha_is_opaque,
             window,
@@ -487,5 +495,6 @@ impl Drop for GpuRenderer {
                 release();
             }
         });
+        self.submission_poller.notify();
     }
 }
