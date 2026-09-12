@@ -12,24 +12,15 @@ pub(super) fn stage_offline_runtime(
     let service = sabine_service::ensure_service_executable(|_| {})
         .map_err(|error| format!("could not prepare offline Sabine service: {error}"))?;
     let daemon = sabine_service::service_daemon_path(&service);
-    let (binary_dir, manifest_dir) = match format {
-        BundleFormat::Macos | BundleFormat::Dmg => (
-            staged.app_dir.join("Contents/MacOS"),
-            staged.app_dir.join("Contents/Resources"),
-        ),
-        BundleFormat::Windows | BundleFormat::Msi | BundleFormat::Exe => {
-            (staged.app_dir.clone(), staged.app_dir.join("resources"))
-        }
-        BundleFormat::AppImage
-        | BundleFormat::Linux
-        | BundleFormat::Deb
-        | BundleFormat::Rpm
-        | BundleFormat::Portable => (
-            staged.app_dir.join("usr/bin"),
-            staged.app_dir.join("usr/share/sabine/manifests"),
-        ),
+    let binary_dir = staged
+        .binary
+        .parent()
+        .ok_or("offline application has no binary directory")?;
+    let manifest_dir = match format {
+        BundleFormat::Macos | BundleFormat::Dmg => staged.app_dir.join("Contents/Resources"),
+        _ => binary_dir.join("resources"),
     };
-    fs::create_dir_all(&binary_dir).map_err(|error| error.to_string())?;
+    fs::create_dir_all(binary_dir).map_err(|error| error.to_string())?;
     for (source, name) in [
         (&service, service.file_name().unwrap_or_default()),
         (&daemon, daemon.file_name().unwrap_or_default()),

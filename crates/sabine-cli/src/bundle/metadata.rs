@@ -159,8 +159,7 @@ cp -a "%{{sabine_source}}/." "%{{buildroot}}/"
 %files
 /usr/bin/{executable}
 /usr/share/applications/{id}.desktop
-/usr/share/sabine/{id}
-/usr/share/sabine/manifests/{executable}.toml
+/usr/lib/sabine/{id}
 "#,
         name = rpm_name(&app.id),
         version = app.version,

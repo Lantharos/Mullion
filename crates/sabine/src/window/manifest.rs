@@ -118,18 +118,10 @@ fn framework_manifest_path() -> Option<PathBuf> {
     if let Ok(executable) = env::current_exe()
         && let Some(directory) = executable.parent()
     {
-        let stem = executable.file_stem().and_then(|stem| stem.to_str());
-        let mut candidates = vec![
+        let candidates = [
             directory.join("resources/Sabine.toml"),
             directory.join("../Resources/Sabine.toml"),
         ];
-        if let Some(stem) = stem {
-            candidates.push(
-                directory
-                    .join("../share/sabine/manifests")
-                    .join(format!("{stem}.toml")),
-            );
-        }
         if let Some(path) = candidates.into_iter().find(|path| path.is_file()) {
             return Some(path);
         }

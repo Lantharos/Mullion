@@ -443,6 +443,11 @@ implemented.
 
 Supported targets are portable, Linux directory, deb, rpm, AppImage, Windows directory, exe, msi,
 macOS app, and dmg. Cross-host staging is allowed; signing and notarization remain deployment policy.
+Linux packages keep each application, its resources, and any offline runtime/service payload under
+`/usr/lib/sabine/<app-id>`. A relative symlink in `/usr/bin` launches the app. Runtime and manifest
+discovery follow the executable into its private directory, including in relocated portable bundles
+and AppImages. Separate applications do not claim shared offline helper binaries or runtime files.
+
 Windows builds statically link the Microsoft C runtime and select the GUI subsystem. MSI output is
 explicitly x64 and installs under the current user profile. Its wizard prepares the shared runtime,
 supports repair, and rolls back app registration alongside packaged files on failure. Uninstall

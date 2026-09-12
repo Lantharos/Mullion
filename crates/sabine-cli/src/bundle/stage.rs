@@ -20,6 +20,7 @@ pub(super) struct StagedBundle {
     pub root: PathBuf,
     pub app_dir: PathBuf,
     pub executable: String,
+    pub binary: PathBuf,
 }
 
 pub(super) fn stage_bundle(
@@ -75,7 +76,16 @@ pub(super) fn stage_bundle(
             stage_unix_root(app, format, binary, &root, &executable)?
         }
     };
+    let binary = match format {
+        BundleFormat::Macos | BundleFormat::Dmg => app_dir.join("Contents/MacOS").join(&executable),
+        BundleFormat::Windows | BundleFormat::Msi | BundleFormat::Exe => app_dir.join(&executable),
+        _ => app_dir
+            .join("usr/lib/sabine")
+            .join(&app.id)
+            .join(&executable),
+    };
     let staged = StagedBundle {
+        binary,
         root,
         app_dir,
         executable,
@@ -195,9 +205,7 @@ fn stage_appimage(
     executable: &str,
 ) -> Result<PathBuf, String> {
     let app_dir = root.join("AppDir");
-    let bin_dir = app_dir.join("usr/bin");
-    fs::create_dir_all(&bin_dir).map_err(|error| error.to_string())?;
-    copy_binary(binary, &bin_dir.join(executable))?;
+    let private_dir = stage_unix_binary(app, binary, &app_dir, executable)?;
     fs::write(app_dir.join("AppRun"), app_run(executable)).map_err(|error| error.to_string())?;
     make_executable(&app_dir.join("AppRun")).map_err(|error| error.to_string())?;
     let icon = stage_appimage_icon(app, &app_dir)?;
@@ -208,14 +216,7 @@ fn stage_appimage(
     .map_err(|error| error.to_string())?;
     stage_resources(
         app,
-        &app_dir.join("usr/share/sabine").join(&app.id),
-        AppInstallMode::Package,
-        Some(AppArtifactKind::AppImage),
-    )?;
-    stage_unix_manifest(
-        app,
-        &app_dir,
-        executable,
+        &private_dir.join("resources"),
         AppInstallMode::Package,
         Some(AppArtifactKind::AppImage),
     )?;
@@ -230,12 +231,10 @@ fn stage_unix_root(
     executable: &str,
 ) -> Result<PathBuf, String> {
     let app_dir = root.join("root");
-    let bin_dir = app_dir.join("usr/bin");
+    let private_dir = stage_unix_binary(app, binary, &app_dir, executable)?;
     let desktop_dir = app_dir.join("usr/share/applications");
-    let resources = app_dir.join("usr/share/sabine").join(&app.id);
-    fs::create_dir_all(&bin_dir).map_err(|error| error.to_string())?;
+    let resources = private_dir.join("resources");
     fs::create_dir_all(&desktop_dir).map_err(|error| error.to_string())?;
-    copy_binary(binary, &bin_dir.join(executable))?;
     fs::write(
         desktop_dir.join(format!("{}.desktop", app.id)),
         desktop_entry(app, executable, linux_icon_path(app, format).as_deref()),
@@ -252,29 +251,27 @@ fn stage_unix_root(
         _ => None,
     };
     stage_resources(app, &resources, install_mode, package_kind)?;
-    stage_unix_manifest(app, &app_dir, executable, install_mode, package_kind)?;
     Ok(app_dir)
 }
 
-fn stage_unix_manifest(
+fn stage_unix_binary(
     app: &BundleApp,
-    app_dir: &Path,
+    binary: &Path,
+    root: &Path,
     executable: &str,
-    install_mode: AppInstallMode,
-    package_kind: Option<AppArtifactKind>,
-) -> Result<(), String> {
-    let manifests = app_dir.join("usr/share/sabine/manifests");
-    fs::create_dir_all(&manifests).map_err(|error| error.to_string())?;
-    fs::write(
-        manifests.join(format!("{executable}.toml")),
-        runtime_manifest(
-            app,
-            &format!("../{}/web", app.id),
-            install_mode,
-            package_kind,
-        )?,
-    )
-    .map_err(|error| error.to_string())
+) -> Result<PathBuf, String> {
+    let private_dir = root.join("usr/lib/sabine").join(&app.id);
+    copy_binary(binary, &private_dir.join(executable))?;
+    let bin = root.join("usr/bin");
+    fs::create_dir_all(&bin).map_err(|error| error.to_string())?;
+    let target = Path::new("../lib/sabine").join(&app.id).join(executable);
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&target, bin.join(executable)).map_err(|error| error.to_string())?;
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_file(&target, bin.join(executable)).map_err(|error| {
+        format!("Linux bundle staging needs permission to create symlinks: {error}")
+    })?;
+    Ok(private_dir)
 }
 
 fn linux_icon_path(app: &BundleApp, format: BundleFormat) -> Option<String> {
@@ -291,12 +288,12 @@ fn linux_icon_path(app: &BundleApp, format: BundleFormat) -> Option<String> {
         .is_some_and(|extension| extension.eq_ignore_ascii_case("svg"))
     {
         return Some(format!(
-            "/usr/share/sabine/{}/icons/scalable/apps/{}.svg",
+            "/usr/lib/sabine/{}/resources/icons/scalable/apps/{}.svg",
             app.id, app.id
         ));
     }
     Some(format!(
-        "/usr/share/sabine/{}/icons/512x512/apps/{}.png",
+        "/usr/lib/sabine/{}/resources/icons/512x512/apps/{}.png",
         app.id, app.id
     ))
 }
