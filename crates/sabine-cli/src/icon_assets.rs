@@ -2,7 +2,7 @@ use std::{
     env, fs,
     io::Cursor,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::Command,
 };
 
 use image::{DynamicImage, ImageFormat, ImageReader, RgbaImage, imageops};
@@ -98,22 +98,7 @@ fn install_icon_set(app_id: &str, icon: &Path, root: &Path) -> Result<(), String
             icon,
             &root.join("scalable/apps").join(format!("{app_id}.svg")),
         )?;
-        let output = Command::new("magick")
-            .args(["-background", "none", "-density", "384"])
-            .arg(icon)
-            .args(["-resize", "1024x1024", "png:-"])
-            .stdin(Stdio::null())
-            .output()
-            .map_err(|error| format!("SVG icons require ImageMagick: {error}"))?;
-        if !output.status.success() {
-            return Err(format!(
-                "failed to rasterize icon {}: {}",
-                icon.display(),
-                String::from_utf8_lossy(&output.stderr)
-            ));
-        }
-        image::load_from_memory_with_format(&output.stdout, ImageFormat::Png)
-            .map_err(|error| format!("failed to decode rasterized SVG: {error}"))?
+        render_svg(icon)?
     } else {
         load_raster(icon)?
     };
@@ -122,6 +107,79 @@ fn install_icon_set(app_id: &str, icon: &Path, root: &Path) -> Result<(), String
         copy_bytes(&encode_png(&square_icon(&image, *size))?, &destination)?;
     }
     Ok(())
+}
+
+fn render_svg(path: &Path) -> Result<DynamicImage, String> {
+    use resvg::{tiny_skia, usvg};
+    let source = path.canonicalize().map_err(|error| error.to_string())?;
+    let mut options = usvg::Options {
+        resources_dir: source.parent().map(Path::to_path_buf),
+        ..usvg::Options::default()
+    };
+    let select_font = usvg::FontResolver::default_font_selector();
+    options.font_resolver.select_font = Box::new(move |font, database| {
+        if database.is_empty() {
+            load_svg_fonts(std::sync::Arc::make_mut(database));
+        }
+        select_font(font, database)
+    });
+    let tree = usvg::Tree::from_data(
+        &fs::read(&source).map_err(|error| error.to_string())?,
+        &options,
+    )
+    .map_err(|error| format!("failed to parse SVG icon {}: {error}", source.display()))?;
+    let size = tree.size();
+    let scale = 1024.0 / size.width().max(size.height());
+    let transform = tiny_skia::Transform::from_row(
+        scale,
+        0.0,
+        0.0,
+        scale,
+        (1024.0 - size.width() * scale) / 2.0,
+        (1024.0 - size.height() * scale) / 2.0,
+    );
+    let mut pixmap = tiny_skia::Pixmap::new(1024, 1024)
+        .ok_or_else(|| "could not allocate the SVG icon canvas".to_string())?;
+    resvg::render(&tree, transform, &mut pixmap.as_mut());
+    let mut image = RgbaImage::new(1024, 1024);
+    for (destination, source) in image.pixels_mut().zip(pixmap.pixels()) {
+        let color = source.demultiply();
+        *destination = image::Rgba([color.red(), color.green(), color.blue(), color.alpha()]);
+    }
+    Ok(DynamicImage::ImageRgba8(image))
+}
+
+fn load_svg_fonts(database: &mut resvg::usvg::fontdb::Database) {
+    database.load_system_fonts();
+    #[cfg(target_os = "linux")]
+    if let Some(config) = fontconfig::Fontconfig::new() {
+        if let Some(family) = svg_font_family(&config, c"serif") {
+            database.set_serif_family(family);
+        }
+        if let Some(family) = svg_font_family(&config, c"sans-serif") {
+            database.set_sans_serif_family(family);
+        }
+        if let Some(family) = svg_font_family(&config, c"monospace") {
+            database.set_monospace_family(family);
+        }
+        if let Some(family) = svg_font_family(&config, c"cursive") {
+            database.set_cursive_family(family);
+        }
+        if let Some(family) = svg_font_family(&config, c"fantasy") {
+            database.set_fantasy_family(family);
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn svg_font_family(config: &fontconfig::Fontconfig, family: &std::ffi::CStr) -> Option<String> {
+    let mut pattern = fontconfig::Pattern::new(config).ok()?;
+    pattern.add_string(fontconfig::FC_FAMILY, family).ok()?;
+    let matched = pattern.font_match().ok()?;
+    matched
+        .get_string(fontconfig::FC_FAMILY)
+        .ok()
+        .map(str::to_owned)
 }
 
 fn load_raster(path: &Path) -> Result<DynamicImage, String> {

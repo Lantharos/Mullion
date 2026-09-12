@@ -49,6 +49,7 @@ bytemuck = { version = "1.25.2", features = ["derive"] }
 crossbeam-channel = "0.5.16"
 ctrlc = "3.5.2"
 dunce = "1.0.5"
+fontconfig = "0.11.0"
 futures-util = "0.3.33"
 getrandom = "0.4.3"
 glyphon = "0.12.0"
@@ -58,6 +59,7 @@ layershellev = { package = "exwlshellev", git = "https://github.com/Lantharos/ex
 smithay-client-toolkit = "0.20.0"
 ksni = { version = "0.3.6", features = ["blocking"] }
 libc = "0.2.189"
+resvg = "0.48.1"
 rustix = { version = "1.1.4", features = ["net"] }
 pollster = "1.0.1"
 clap = { version = "4.6.6", features = ["derive"] }
@@ -78,7 +80,7 @@ base64 = "0.23.1"
 ed25519-dalek = "3.0.0"
 url = "2.5.8"
 wayland-client = "0.31.15"
-wgpu = "30.0.0"
+wgpu = "30.0.1"
 winit = { git = "https://github.com/rust-windowing/winit", rev = "42366231b0d92480a933339bd5eaa7fba8106f42" }
 windows = "0.62.2"
 x11rb = "0.14.0"

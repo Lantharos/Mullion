@@ -474,8 +474,11 @@ explicitly x64 and installs under the current user profile. Its wizard prepares 
 supports repair, and rolls back app registration alongside packaged files on failure. Uninstall
 removes the app registration and preserves the shared Sabine system. MSI builds require WiX 7 with
 the UI and Util extensions. The configured icon appears in the Start menu shortcut, and the release
-workflow installs and launches the package before publication. Raster icons are decoded and resized in process. SVG packaging requires ImageMagick for a
-single vector-to-raster conversion; all native icon sizes are generated from that image. macOS
+workflow installs and launches the package before publication. Raster and SVG icons are decoded, rendered, and resized in process without external
+image tools. The SVG is rendered once, then reused for all native icon sizes. Font discovery
+runs only when needed; Linux uses Fontconfig for the configured generic font families.
+Building the CLI on Linux requires the Fontconfig development package (`libfontconfig1-dev`
+on Debian/Ubuntu). macOS
 bundles include standard and Retina ICNS sizes, the application package type, and numeric
 bundle versions. The runtime manifest retains the full SemVer version, including prereleases.
 The released Sabine CLI, service, and daemon also use the static Microsoft runtime. First-launch

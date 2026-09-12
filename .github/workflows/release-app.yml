@@ -65,14 +65,11 @@ jobs:
         run: bun install --frozen-lockfile
       - run: rustup toolchain install 1.89 --profile minimal
       - run: rustup override set 1.89
-      - name: Install macOS icon tools
-        if: runner.os == 'macOS'
-        run: brew install imagemagick
       - name: Install Linux packaging dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes libwayland-dev libxkbcommon-dev rpm
+          sudo apt-get install --yes libwayland-dev libfontconfig1-dev libxkbcommon-dev dpkg-dev rpm
           if [ "${{ matrix.target }}" = "appimage" ]; then
             curl --fail --location --output /usr/local/bin/appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
             sudo chmod +x /usr/local/bin/appimagetool
@@ -84,12 +81,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "WiX installation failed" }
           wix extension add --global WixToolset.UI.wixext/7.0.0 WixToolset.Util.wixext/7.0.0
           if ($LASTEXITCODE -ne 0) { throw "WiX extension installation failed; check WiX EULA acceptance" }
-          choco install imagemagick --yes --no-progress
-          $magick = Get-ChildItem "$env:ProgramFiles\ImageMagick-*\magick.exe" | Select-Object -First 1
-          if ($null -eq $magick) {
-            throw "ImageMagick installation did not provide magick.exe"
-          }
-          $magick.DirectoryName >> $env:GITHUB_PATH
       - name: Install matching Sabine CLI
         run: cargo install --git https://github.com/Lantharos/Sabine --tag "${{ inputs.sabine_version }}" sabine-cli
       - name: Bundle application
