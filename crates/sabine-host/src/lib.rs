@@ -17,6 +17,8 @@ mod build_lock;
 mod protocol;
 mod sources;
 pub use protocol::{HOST_PROTOCOL_VERSION, validate_host_protocol};
+#[cfg(target_os = "macos")]
+mod macos_execution;
 mod toolchain;
 
 use build_lock::HostBuildLock;
@@ -142,12 +144,27 @@ pub fn available_host(runtime_dir: &Path) -> Option<PathBuf> {
     })
 }
 
+pub fn prepare_host_execution(host: &Path, runtime: &Path) -> Result<PathBuf, String> {
+    #[cfg(target_os = "macos")]
+    {
+        macos_execution::prepare(host, runtime)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = runtime;
+        Ok(host.to_path_buf())
+    }
+}
+
 pub fn smoke_test_runtime(host: &Path, runtime_dir: &Path) -> Result<(), String> {
+    let _lease =
+        sabine_runtime::RuntimeLease::acquire(runtime_dir).map_err(|error| error.to_string())?;
     let host = host
         .canonicalize()
         .map_err(|error| format!("could not resolve Sabine host {}: {error}", host.display()))?;
     sabine_runtime::prepare_runtime_assets(runtime_dir).map_err(|error| error.to_string())?;
     validate_host_protocol(&host, runtime_dir)?;
+    let host = prepare_host_execution(&host, runtime_dir)?;
     let binary_dir = runtime_binary_directory(runtime_dir);
     let cache_dir = std::env::temp_dir().join(format!(
         "sabine-runtime-probe-{}-{}",
@@ -328,25 +345,7 @@ pub fn apply_runtime_resource_args(command: &mut Command, runtime_dir: &Path) {
                 resources.join("locales").display()
             ));
     }
-    #[cfg(target_os = "macos")]
-    {
-        let framework_parent = [runtime_dir.join("Release"), runtime_dir.to_path_buf()]
-            .into_iter()
-            .find(|root| root.join("Chromium Embedded Framework.framework").is_dir())
-            .unwrap_or_else(|| runtime_dir.join("Release"));
-        let framework = framework_parent.join("Chromium Embedded Framework.framework");
-        let resources = framework.join("Resources");
-        command
-            .arg(format!(
-                "--sabine-framework-dir-path={}",
-                framework.display()
-            ))
-            .arg(format!(
-                "--sabine-resources-dir-path={}",
-                resources.display()
-            ));
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     let _ = (command, runtime_dir);
 }
 

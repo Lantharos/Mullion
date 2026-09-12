@@ -23,9 +23,6 @@ class SabineApp : public CefApp,
   void OnBeforeCommandLineProcessing(
       const CefString& process_type,
       CefRefPtr<CefCommandLine> command_line) override;
-#if defined(OS_MAC)
-  void OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> command_line) override;
-#endif
   void OnContextInitialized() override;
   void OnBrowserCreated(CefRefPtr<CefBrowser> browser,
                         CefRefPtr<CefDictionaryValue> extra_info) override;

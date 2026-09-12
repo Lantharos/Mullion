@@ -55,3 +55,13 @@ pub fn bundled_runtime_path(app_dir: &Path) -> PathBuf {
 pub fn runtime_version_path(version: &str) -> PathBuf {
     user_runtime_path().join(format!("{version}-minimal"))
 }
+
+#[cfg(target_os = "macos")]
+pub fn runtime_execution_path(runtime: &Path) -> std::io::Result<PathBuf> {
+    use std::hash::{Hash, Hasher};
+    let mut fingerprint = std::collections::hash_map::DefaultHasher::new();
+    runtime.canonicalize()?.hash(&mut fingerprint);
+    Ok(user_data_dir()
+        .join("sabine/executions")
+        .join(format!("{:016x}", fingerprint.finish())))
+}

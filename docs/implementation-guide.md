@@ -511,10 +511,13 @@ The released Sabine CLI, service, and daemon also use the static Microsoft runti
 downloads use the in-process HTTP client, and unavoidable helper processes are created without a
 console so only the native bootstrap progress window is visible.
 
-On macOS, the host and its helpers load the selected shared Chromium framework by its explicit
-path. Starting an app does not write a framework symlink into the host bundle, and the host package
-does not duplicate the CEF framework. Native CI signs the host and helpers, makes the bundle read-only,
-initializes Chromium, and verifies that the signature remains intact.
+On macOS, the first launch assembles a private application bundle for the selected host and runtime
+under the user's Sabine data directory. Chromium's sandbox requires the framework inside that bundle.
+Framework files use hard links where supported; other volumes copy them once. The launch bundle
+receives an ad-hoc signature. The distributed host and framework remain unchanged, including their
+signatures, and the host download does not duplicate CEF. Removing an unused managed runtime also
+removes its launch bundles. Native CI protects the original host bundle and checks its signature
+after Chromium starts.
 
 Source installs are development conveniences. They stage assets and a launcher under the Sabine data
 directory, register the app with the service, and create platform launch metadata.
@@ -528,7 +531,7 @@ pixels. Desktop composition, input, multi-window behavior, and GPU/device accept
 the platform runtime checks too. The probe fails if Chromium cannot render its page within
 25 seconds, shuts Chromium down normally, and captures bounded error details without blocking
 on stderr output. On macOS, the workflow also verifies that the signed host bundle remains
-unmodified while loading the external shared framework.
+unmodified while Chromium runs from the private launch bundle.
 
 After code changes run:
 

@@ -197,12 +197,7 @@ void SabineApp::OnBeforeCommandLineProcessing(
   }
 }
 
-#if defined(OS_MAC)
-void SabineApp::OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> command_line) {
-  command_line->AppendSwitchWithValue("sabine-framework-dir-path",
-      CefCommandLine::GetGlobalCommandLine()->GetSwitchValue("sabine-framework-dir-path"));
-}
-#endif
+
 
 void SabineApp::OnContextInitialized() {
   CEF_REQUIRE_UI_THREAD();

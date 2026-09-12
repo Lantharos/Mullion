@@ -36,6 +36,8 @@ pub use install::{
     quarantine_user_runtime, remove_user_runtime_version, update_user_runtime_with_progress,
 };
 pub use lease::RuntimeLease;
+#[cfg(target_os = "macos")]
+pub use paths::runtime_execution_path;
 pub use paths::{
     bundled_runtime_path, runtime_version_path, system_runtime_path, user_runtime_path,
 };

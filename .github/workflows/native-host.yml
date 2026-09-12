@@ -64,6 +64,12 @@ jobs:
           $bundle = Split-Path (Split-Path (Split-Path $env:SABINE_HOST_PATH))
           & codesign --verify --deep --strict $bundle
           if ($LASTEXITCODE -ne 0) { throw 'Launching changed the signed host bundle' }
+          $executions = Join-Path $env:HOME 'Library/Application Support/sabine/executions'
+          $bundles = @(Get-ChildItem $executions -Directory -Recurse -Filter 'sabine-host.app')
+          if ($bundles.Count -ne 1) { throw 'Expected one cached Chromium launch bundle' }
+          & codesign --verify --deep --strict $bundles[0].FullName
+          if ($LASTEXITCODE -ne 0) { throw 'The launch bundle signature is invalid' }
+
       - name: Check Windows console ownership
         if: runner.os == 'Windows'
         run: cargo test --locked -p sabine-runtime process::tests::background_children_do_not_inherit_a_console -- --exact

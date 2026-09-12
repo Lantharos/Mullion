@@ -277,7 +277,7 @@ pub fn prune_user_runtimes(keep_latest: usize) -> Result<usize, RuntimeError> {
         if runtime_is_leased(&path)? {
             continue;
         }
-        std::fs::remove_dir_all(path)?;
+        remove_runtime_and_execution_cache(&path)?;
         removed += 1;
     }
     Ok(removed)
@@ -302,7 +302,7 @@ pub fn remove_user_runtime_version(version: &str) -> Result<bool, RuntimeError> 
         if runtime_is_leased(&path)? {
             continue;
         }
-        std::fs::remove_dir_all(path)?;
+        remove_runtime_and_execution_cache(&path)?;
         removed = true;
     }
     Ok(removed)
@@ -338,4 +338,15 @@ impl RuntimeInstallLock {
         crate::recover_directory_installs(&user_runtime_path())?;
         Ok(Self { _lock: lock })
     }
+}
+
+fn remove_runtime_and_execution_cache(path: &Path) -> std::io::Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        let cache = crate::runtime_execution_path(path)?;
+        if cache.is_dir() {
+            std::fs::remove_dir_all(cache)?;
+        }
+    }
+    std::fs::remove_dir_all(path)
 }
