@@ -1,7 +1,7 @@
-# Sabine 0.23
+# Sabine 0.24
 
-Apps must be rebuilt with Sabine 0.23 before using this shared system. The minimum supported app
-build is 23 because the bridge authorization and host protocol changed. Existing app registrations
+Apps built before Sabine 0.23 must be rebuilt before using this shared system. The minimum
+supported app build is 23 because the bridge authorization and host protocol changed. Existing app registrations
 remain available for updates. macOS releases support Apple Silicon; Intel Mac targets have been
 removed. The minimum Rust version is 1.90.
 
@@ -37,3 +37,6 @@ Native screen-reader integration is not implemented. Linux and macOS browser dia
 system's default ownership. Physical Windows/macOS IME and hybrid-GPU behavior still need device
 testing; CI uses hosted machines. macOS distribution signing and notarization remain the app
 publisher's responsibility.
+
+The v0.23 tag remains available, but its release was stopped when the Linux packaging check found
+an invalid AppArmor attachment for external hosts. Version 0.24 includes the corrected policy.
