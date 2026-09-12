@@ -7,6 +7,7 @@ use std::{
 };
 
 pub const HOST_PROTOCOL_VERSION: &str = "3";
+const HOST_PROTOCOL_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub fn validate_host_protocol(host: &Path, runtime_dir: &Path) -> Result<(), String> {
     #[cfg(windows)]
@@ -62,7 +63,7 @@ pub fn validate_host_protocol(host: &Path, runtime_dir: &Path) -> Result<(), Str
     let mut child = command
         .spawn()
         .map_err(|error| format!("could not check Sabine host {}: {error}", host.display()))?;
-    let deadline = Instant::now() + Duration::from_secs(3);
+    let deadline = Instant::now() + HOST_PROTOCOL_TIMEOUT;
     let failure = loop {
         match child.try_wait() {
             Ok(Some(status)) => {
@@ -89,7 +90,10 @@ pub fn validate_host_protocol(host: &Path, runtime_dir: &Path) -> Result<(), Str
                 let _ = child.wait();
                 break match result {
                     Err(error) => format!("could not wait for process: {error}"),
-                    _ => "startup check timed out after 3 seconds".to_string(),
+                    _ => format!(
+                        "startup check timed out after {} seconds",
+                        HOST_PROTOCOL_TIMEOUT.as_secs()
+                    ),
                 };
             }
         }

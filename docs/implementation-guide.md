@@ -670,7 +670,9 @@ the app window opens display a separate notice. The windows render Unicode text
 using installed fonts and wrap messages; the log retains text beyond the visible
 window area.
 
-The native host and app must support the same host protocol. Sabine checks the host before
+The native host and app must support the same host protocol. The host check allows up to
+30 seconds for cold starts on slower machines and returns as soon as the host responds.
+Sabine checks the host before
 launching Chromium and reports a repair/update error when an older installation cannot enforce
 the app's bridge policy.
 
