@@ -4,6 +4,7 @@ mod metadata;
 mod package;
 mod stage;
 mod windows;
+mod windows_msi;
 
 use std::{
     path::PathBuf,

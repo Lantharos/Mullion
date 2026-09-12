@@ -7,7 +7,7 @@ use std::{
 use super::{
     BundleFormat,
     config::BundleApp,
-    metadata::{deb_control, rpm_spec, shell_script, wix_source},
+    metadata::{deb_control, rpm_spec, shell_script},
     stage::StagedBundle,
     windows::nsis_script,
 };
@@ -238,12 +238,12 @@ fn package_msi(
     let icon = icon.is_file().then(|| icon.display().to_string());
     fs::write(
         &wxs,
-        wix_source(
+        super::windows_msi::wix_source(
             app,
             &source_dir.display().to_string(),
             &staged.executable,
             icon.as_deref(),
-        ),
+        )?,
     )
     .map_err(|error| error.to_string())?;
     if command_exists("wix") {
@@ -254,6 +254,12 @@ fn package_msi(
             .args(["-arch", "x64"])
             .arg("-wx")
             .args(["-pdbtype", "none"])
+            .args([
+                "-ext",
+                "WixToolset.UI.wixext",
+                "-ext",
+                "WixToolset.Util.wixext",
+            ])
             .arg(&wxs)
             .arg("-o")
             .arg(&artifact))?;
@@ -264,7 +270,7 @@ fn package_msi(
             &shell_script(&[
                 &mkdir_parent_line(&artifact),
                 &format!(
-                    "wix build -arch x64 -wx -pdbtype none {} -o {}",
+                    "wix build -arch x64 -wx -pdbtype none -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext {} -o {}",
                     shell_quote(&wxs.display().to_string()),
                     shell_quote(&artifact.display().to_string())
                 ),

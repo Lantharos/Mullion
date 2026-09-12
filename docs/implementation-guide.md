@@ -444,8 +444,11 @@ implemented.
 Supported targets are portable, Linux directory, deb, rpm, AppImage, Windows directory, exe, msi,
 macOS app, and dmg. Cross-host staging is allowed; signing and notarization remain deployment policy.
 Windows builds statically link the Microsoft C runtime and select the GUI subsystem. MSI output is
-explicitly x64, carries the configured icon into its Start menu shortcut, and is installed and
-launched by the release workflow before publication. Raster icons are encoded directly; SVG
+explicitly x64 and installs under the current user profile. Its wizard prepares the shared runtime,
+supports repair, and rolls back app registration alongside packaged files on failure. Uninstall
+removes the app registration and preserves the shared Sabine system. MSI builds require WiX 7 with
+the UI and Util extensions. The configured icon appears in the Start menu shortcut, and the release
+workflow installs and launches the package before publication. Raster icons are encoded directly; SVG
 packaging requires ImageMagick so the CLI can generate Windows and freedesktop raster icon sizes.
 The released Sabine CLI, service, and daemon also use the static Microsoft runtime. First-launch
 downloads use the in-process HTTP client, and unavoidable helper processes are created without a

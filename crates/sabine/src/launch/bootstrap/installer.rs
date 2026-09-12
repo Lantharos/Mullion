@@ -33,20 +33,19 @@ pub(crate) fn run(config: &SabineWindowConfig, args: &[String]) -> ! {
 fn prepare(config: &SabineWindowConfig) -> Result<(), String> {
     config.validate().map_err(|error| error.to_string())?;
     let manifest = super::app_manifest(config).ok_or("The app has no installation identity")?;
-    let report =
-        prepare_machine_with_progress(config.runtime.clone(), Some(manifest), |progress| {
-            if let Some(fraction) = progress.fraction {
-                println!(
-                    "{:>3}% {}",
-                    (fraction * 100.0).round() as u32,
-                    progress.message
-                );
-            } else {
-                println!("{}", progress.message);
-            }
-            let _ = std::io::stdout().flush();
-        })
-        .map_err(|error| error.to_string())?;
+    let report = prepare_machine_with_progress(config.runtime.clone(), None, |progress| {
+        if let Some(fraction) = progress.fraction {
+            println!(
+                "{:>3}% {}",
+                (fraction * 100.0).round() as u32,
+                progress.message
+            );
+        } else {
+            println!("{}", progress.message);
+        }
+        let _ = std::io::stdout().flush();
+    })
+    .map_err(|error| error.to_string())?;
     if !report.daemon_running {
         return Err(
             "The Sabine background service could not start. Retry setup to repair it.".into(),
@@ -58,6 +57,9 @@ fn prepare(config: &SabineWindowConfig) -> Result<(), String> {
         .ok_or("The Sabine native host is missing. Retry setup to repair it.")?;
     sabine_host::prepare_host_runtime(&host, runtime.location.path())?;
     sabine_host::validate_host_protocol(&host, runtime.location.path())?;
+    SabineService::default()
+        .register(manifest)
+        .map_err(|error| error.to_string())?;
     println!("Installation is ready.");
     Ok(())
 }

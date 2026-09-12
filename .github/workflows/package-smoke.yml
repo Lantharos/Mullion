@@ -56,7 +56,8 @@ jobs:
       - name: Install Windows packaging dependencies
         if: runner.os == 'Windows'
         run: |
-          dotnet tool install --global wix --version 6.0.2
+          dotnet tool install --global wix --version 7.0.0
+          wix extension add --global WixToolset.UI.wixext/7.0.0 WixToolset.Util.wixext/7.0.0
           choco install imagemagick nsis --yes --no-progress
           "${env:ProgramFiles(x86)}\NSIS" >> $env:GITHUB_PATH
           $magick = Get-ChildItem "$env:ProgramFiles\ImageMagick-*\magick.exe" | Select-Object -First 1
@@ -65,7 +66,7 @@ jobs:
           }
           $magick.DirectoryName >> $env:GITHUB_PATH
       - name: Build offline Windows setup dependencies
-        if: matrix.target == 'exe'
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           cargo build --release --workspace
@@ -93,7 +94,7 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: "1"
         run: |
           $offline = @()
-          if ('${{ matrix.target }}' -eq 'exe') { $offline = @('--offline') }
+          if ('${{ runner.os }}' -eq 'Windows') { $offline = @('--offline') }
           cargo run --release -p sabine-cli -- bundle release-probe --target "${{ matrix.target }}" --release @offline
           if ($LASTEXITCODE -ne 0) { throw "package build failed" }
           $artifacts = @(Get-ChildItem dist/artifacts -File)
@@ -111,7 +112,7 @@ jobs:
         shell: pwsh
         run: |
           $msi = @(Get-ChildItem dist/artifacts -Filter *.msi -File)
-          $stagedExe = @(Get-ChildItem dist/msi -Filter *.exe -File -Recurse)
+          $stagedExe = @(Get-ChildItem dist/msi -Filter release-probe.exe -File -Recurse)
           if ($msi.Count -ne 1 -or $stagedExe.Count -ne 1) {
             throw "expected one MSI and one staged executable"
           }
@@ -135,11 +136,18 @@ jobs:
             Get-Content $log -Tail 100
             throw "MSI installation failed with exit code $($install.ExitCode)"
           }
-          $appDir = Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'release-probe'
-          $installedExe = Get-ChildItem $appDir -Filter *.exe -File | Select-Object -First 1
+          $appDir = Join-Path $env:LOCALAPPDATA 'Programs/dev.sabine.release-probe'
+          $installedExe = Get-Item (Join-Path $appDir 'release-probe.exe')
           if ($null -eq $installedExe -or -not (Test-Path (Join-Path $appDir 'resources/windows-app.ico'))) {
-            throw "MSI did not install the x64 application and icon under Program Files"
+            throw "MSI did not install the x64 application and icon under the current user profile"
           }
+          $registry = Join-Path $env:LOCALAPPDATA 'Sabine/apps.json'
+          $registered = (Get-Content $registry -Raw | ConvertFrom-Json).apps
+          if (-not $registered.PSObject.Properties['dev.sabine.release-probe']) {
+            throw "MSI finished without preparing and registering the application"
+          }
+          $repair = Start-Process msiexec.exe -ArgumentList @('/fa', $msi[0].FullName, '/qn', '/norestart', '/l*v', $log) -Wait -PassThru
+          if ($repair.ExitCode -ne 0) { Get-Content $log -Tail 100; throw "MSI repair failed" }
           try {
             $app = Start-Process $installedExe.FullName -PassThru
             Start-Sleep -Seconds 8
@@ -148,7 +156,11 @@ jobs:
             }
             Stop-Process -Id $app.Id -Force
           } finally {
-            Start-Process msiexec.exe -ArgumentList @('/x', $msi[0].FullName, '/qn', '/norestart') -Wait
+            $uninstall = Start-Process msiexec.exe -ArgumentList @('/x', $msi[0].FullName, '/qn', '/norestart', '/l*v', $log) -Wait -PassThru
+            if ($uninstall.ExitCode -ne 0) { Get-Content $log -Tail 100; throw "MSI uninstall failed" }
+            $registered = (Get-Content $registry -Raw | ConvertFrom-Json).apps
+            if ($registered.PSObject.Properties['dev.sabine.release-probe']) { throw "MSI left the app registered" }
+            if (Test-Path $installedExe.FullName) { throw "MSI left its application executable" }
           }
       - name: Install, repair, launch, and uninstall Windows setup
         if: matrix.target == 'exe'

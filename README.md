@@ -201,8 +201,10 @@ then offer Install or Later when the app next opens. Later snoozes the prompt fo
 closes the app, requests elevation when needed, installs, and relaunches it. Store installs remain
 owned by the store.
 
-Windows bundles statically link the Microsoft C runtime. MSI packages are x64, install under
-`Program Files`, and use the configured app icon for their Start menu shortcut. The release workflow
+Windows bundles statically link the Microsoft C runtime. MSI packages are x64 and install for the current user under
+`%LOCALAPPDATA%\Programs\<app-id>`. Their wizard prepares the shared runtime before finishing,
+supports repair, and uses the configured app icon for the Start menu shortcut. MSI failures roll
+back packaged files and app registration; uninstall leaves the shared runtime available to other apps. The release workflow
 installs and launches the MSI before publishing it. Windows bundle targets are linked as GUI apps,
 so existing apps do not need source-level linker configuration to avoid a console window.
 Sabine's own service and daemon are also self-contained, and bootstrap tools run without creating

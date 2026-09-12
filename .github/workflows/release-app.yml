@@ -77,7 +77,8 @@ jobs:
       - name: Install Windows packaging dependencies
         if: runner.os == 'Windows'
         run: |
-          dotnet tool install --global wix --version 6.0.2
+          dotnet tool install --global wix --version 7.0.0
+          wix extension add --global WixToolset.UI.wixext/7.0.0 WixToolset.Util.wixext/7.0.0
           choco install imagemagick --yes --no-progress
           $magick = Get-ChildItem "$env:ProgramFiles\ImageMagick-*\magick.exe" | Select-Object -First 1
           if ($null -eq $magick) {
@@ -141,10 +142,11 @@ jobs:
             Get-Content $log -Tail 100
             throw "MSI installation failed with exit code $($install.ExitCode)"
           }
-          $appDir = Join-Path ([Environment]::GetFolderPath('ProgramFiles')) $appName
+          if ($config -notmatch '(?ms)\[app\].*?^id\s*=\s*"([^"]+)"') { throw "Sabine.toml app id is missing" }
+          $appDir = Join-Path $env:LOCALAPPDATA "Programs/$($Matches[1])"
           $installedExe = Get-ChildItem $appDir -Filter *.exe -File | Select-Object -First 1
           if ($null -eq $installedExe) {
-            throw "MSI did not install the x64 application under Program Files"
+            throw "MSI did not install the x64 application under the current user profile"
           }
           if ($config -match '(?m)^icon\s*=\s*"' -and -not (Test-Path (Join-Path $appDir 'resources/windows-app.ico'))) {
             throw "MSI did not install the application icon"
