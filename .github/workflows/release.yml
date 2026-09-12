@@ -157,8 +157,13 @@ jobs:
         with:
           path: release
           merge-multiple: true
+      - name: Install CLI runtime dependencies
+        run: sudo apt-get update && sudo apt-get install --yes libfontconfig1
       - name: Generate release metadata
-        run: cargo run --release -p sabine-cli -- system-release-manifest --version "$GITHUB_REF_NAME" --directory release --output release/sabine-release.json
+        run: |
+          mkdir -p "$RUNNER_TEMP/sabine-release-cli"
+          tar -xzf release/sabine-cli-linux-x86_64.tar.gz -C "$RUNNER_TEMP/sabine-release-cli"
+          "$RUNNER_TEMP/sabine-release-cli/sabine" system-release-manifest --version "$GITHUB_REF_NAME" --directory release --output release/sabine-release.json
       - uses: actions/attest@v4
         with:
           subject-path: release/*
