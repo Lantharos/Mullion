@@ -33,7 +33,8 @@ jobs:
           $data = Join-Path $env:LOCALAPPDATA 'Sabine'
           $current = Get-Content (Join-Path $data 'bin/current.json') -Raw | ConvertFrom-Json
           $hostPath = Join-Path $data "bin/versions/$($current.active)/sabine-host.exe"
-          $library = Get-ChildItem (Join-Path $data 'runtimes/cef') -Filter libcef.dll -Recurse | Select-Object -First 1
+          $library = Get-ChildItem $env:LOCALAPPDATA -Filter libcef.dll -File -Recurse | Select-Object -First 1
+          if ($null -eq $library) { throw 'No installed libcef.dll found' }
           $resources = Join-Path $library.Directory.Parent.FullName 'Resources'
           foreach ($variant in @('default', 'd3d11-luid', 'warp', 'warp-luid')) {
             $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
