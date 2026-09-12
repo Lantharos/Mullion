@@ -8,7 +8,12 @@ function Wait-SabineAppFrame([Diagnostics.Process] $Application, [string] $LogPa
     $deadline = (Get-Date).AddSeconds(60)
     $firstPaint = $null
     while ((Get-Date) -lt $deadline) {
-        $diagnostics = if (Test-Path $LogPath) { [IO.File]::ReadAllText($LogPath) } else { '' }
+        $diagnostics = ''
+        if (Test-Path $LogPath) {
+            $file = [IO.File]::Open($LogPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+            $reader = [IO.StreamReader]::new($file)
+            try { $diagnostics = $reader.ReadToEnd() } finally { $reader.Dispose() }
+        }
         Assert-SabineBrowserDiagnostics $diagnostics
         if ($Application.HasExited) {
             throw "Installed app exited with code $($Application.ExitCode): $diagnostics"
