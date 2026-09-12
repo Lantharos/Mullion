@@ -15,14 +15,18 @@ pub(super) fn profile() -> Result<String, String> {
         .collect::<String>();
     let managed = format!("{}/**/sabine-host", escape(&data_root)?);
     let host = host.canonicalize().map_err(|error| error.to_string())?;
-    let paths = if host.starts_with(&data_root) {
-        managed
-    } else {
-        format!("{{{managed},{}}}", escape(&host)?)
-    };
-    Ok(format!(
-        "abi <abi/4.0>,\ninclude <tunables/global>\n\nprofile sabine-{name} \"{paths}\" flags=(unconfined) {{\n  userns,\n}}\n"
-    ))
+    let mut output = String::from("abi <abi/4.0>,\ninclude <tunables/global>\n\n");
+    output.push_str(&attachment(&name, &managed));
+    if !host.starts_with(&data_root) {
+        output.push('\n');
+        output.push_str(&attachment(&format!("{name}-external"), &escape(&host)?));
+    }
+    Ok(output)
+}
+
+#[cfg(target_os = "linux")]
+fn attachment(name: &str, path: &str) -> String {
+    format!("profile sabine-{name} \"{path}\" flags=(unconfined) {{\n  userns,\n}}\n")
 }
 
 #[cfg(target_os = "linux")]

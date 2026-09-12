@@ -43,8 +43,8 @@ sabine runtime doctor
 rm sabine-apparmor
 ```
 
-The profile permits user namespaces for hosts under that user’s Sabine data directory and the
-selected external host, if any. It covers shared runtime updates without changing global AppArmor
+The generated policy permits user namespaces for hosts under that user’s Sabine data directory,
+with a separate attachment for the selected external host, if any. It covers shared runtime updates without changing global AppArmor
 policy. An administrator should review the generated paths: anyone able to replace an executable
 at those paths can also use this namespace permission. If the kernel disables user namespaces
 entirely, an administrator must enable them or provide Chromium’s trusted, root-owned setuid
