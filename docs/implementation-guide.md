@@ -466,6 +466,10 @@ on the target Debian/Ubuntu environment with `dpkg-dev`: `dpkg-shlibdeps` determ
 versions, supplemented by Chromium's desktop dependencies. RPM also declares the desktop libraries
 needed by downloaded runtimes and retains automatic ELF dependency generation.
 
+macOS bundles require a native Apple Silicon Mach-O executable, including when using `--binary`.
+Offline bundles must be assembled on the target operating system and CPU architecture so their service, CEF host and
+runtime match the application.
+
 `[app]` accepts `publisher`, `maintainer`, and `license`. Publisher and maintainer can come from Cargo
 `authors`, including inherited workspace authors; license can come from Cargo `license`. Debian
 packages require a maintainer in `Name <email>` form. RPM packages require a license identifier.

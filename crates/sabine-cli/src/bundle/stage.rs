@@ -28,6 +28,12 @@ pub(super) fn stage_bundle(
     out: &Path,
     offline: bool,
 ) -> Result<StagedBundle, String> {
+    if matches!(format, BundleFormat::Macos | BundleFormat::Dmg) {
+        crate::macos_bundle::validate_executable(binary)?;
+    }
+    if offline {
+        offline::validate_platform(format, binary)?;
+    }
     if let Some(web) = &app.web {
         web.assets()?;
     }

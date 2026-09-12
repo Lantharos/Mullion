@@ -1,3 +1,22 @@
+use std::{fs::File, io::Read, path::Path};
+
+pub fn validate_executable(path: &Path) -> Result<(), String> {
+    let mut header = [0u8; 32];
+    File::open(path)
+        .and_then(|mut file| file.read_exact(&mut header))
+        .map_err(|error| format!("could not inspect {}: {error}", path.display()))?;
+    let magic = u32::from_le_bytes(header[0..4].try_into().unwrap());
+    let cpu = u32::from_le_bytes(header[4..8].try_into().unwrap());
+    let kind = u32::from_le_bytes(header[12..16].try_into().unwrap());
+    if magic != 0xfeed_facf || cpu != 0x0100_000c || kind != 2 {
+        return Err(format!(
+            "macOS bundles require an Apple Silicon Mach-O executable; rebuild {} for aarch64-apple-darwin",
+            path.display()
+        ));
+    }
+    Ok(())
+}
+
 pub fn info_plist(
     id: &str,
     name: &str,

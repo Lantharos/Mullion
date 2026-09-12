@@ -2,6 +2,59 @@ use std::{fs, io, path::Path};
 
 use super::{BundleFormat, StagedBundle, copy_binary, copy_dir_recursive};
 
+pub(super) fn validate_platform(format: BundleFormat, binary: &Path) -> Result<(), String> {
+    let operating_system = match format {
+        BundleFormat::Macos | BundleFormat::Dmg => "macos",
+        BundleFormat::Windows | BundleFormat::Msi | BundleFormat::Exe => "windows",
+        _ => "linux",
+    };
+    if operating_system != std::env::consts::OS {
+        return Err("offline bundles must be built on their target operating system".into());
+    }
+    let architecture = match format {
+        BundleFormat::Macos | BundleFormat::Dmg => "aarch64",
+        BundleFormat::Windows | BundleFormat::Msi | BundleFormat::Exe => {
+            windows_architecture(binary)?
+        }
+        _ => super::super::linux_package::architecture(binary)?.1,
+    };
+    if architecture != std::env::consts::ARCH {
+        return Err(format!(
+            "offline {architecture} bundles must be built on a {architecture} machine"
+        ));
+    }
+    Ok(())
+}
+
+fn windows_architecture(binary: &Path) -> Result<&'static str, String> {
+    use std::io::{Read, Seek, SeekFrom};
+    let inspect = || -> io::Result<[u8; 6]> {
+        let mut file = fs::File::open(binary)?;
+        let mut dos = [0u8; 64];
+        file.read_exact(&mut dos)?;
+        if &dos[..2] != b"MZ" {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "missing DOS header",
+            ));
+        }
+        let offset = u32::from_le_bytes(dos[60..64].try_into().unwrap());
+        file.seek(SeekFrom::Start(u64::from(offset)))?;
+        let mut pe = [0u8; 6];
+        file.read_exact(&mut pe)?;
+        Ok(pe)
+    };
+    let pe = inspect().map_err(|error| format!("could not inspect Windows executable: {error}"))?;
+    if &pe[..4] != b"PE\0\0" {
+        return Err("Windows bundles require a PE executable".into());
+    }
+    match u16::from_le_bytes([pe[4], pe[5]]) {
+        0x8664 => Ok("x86_64"),
+        0xaa64 => Ok("aarch64"),
+        _ => Err("Windows bundles support x86_64 and aarch64".into()),
+    }
+}
+
 pub(super) fn stage_offline_runtime(
     format: BundleFormat,
     staged: &StagedBundle,
