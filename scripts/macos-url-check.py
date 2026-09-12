@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from urllib.parse import unquote, urlsplit
 
 if sys.platform != "darwin":
     raise SystemExit("This check requires macOS")
@@ -110,7 +111,12 @@ fn main() {
         subprocess.run(["open", "-n", "-g", "-a", str(bundle), "sabine-url-check://cold-start"], check=True)
         assert wait_for_count(1) == [["sabine-url-check://cold-start"]]
         subprocess.run(["open", "-g", "-a", str(bundle), str(document)], check=True)
-        assert wait_for_count(2) == [["sabine-url-check://cold-start"], [document.as_uri()]]
+        delivered = wait_for_count(2)
+        assert delivered[0] == ["sabine-url-check://cold-start"], delivered
+        assert len(delivered[1]) == 1, delivered
+        opened = urlsplit(delivered[1][0])
+        assert opened.scheme == "file" and not opened.netloc, delivered
+        assert Path(unquote(opened.path)).samefile(document), delivered
         print("macOS delivered the cold-start URL and subsequent document to the application delegate")
     finally:
         if pidfile.exists():
