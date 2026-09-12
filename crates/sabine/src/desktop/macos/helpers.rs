@@ -185,10 +185,17 @@ pub(super) fn write_autostart_entry(entry: &AutostartEntry) -> Result<(), String
     let label = format!("dev.sabine.{}", sanitize_id(&entry.id));
     let plist_path = agents.join(format!("{label}.plist"));
     if !entry.enabled {
-        let _ = fs::remove_file(&plist_path);
-        return Ok(());
+        return match fs::remove_file(&plist_path) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(error.to_string()),
+        };
     }
-    let program_args = shell_words(&entry.command);
+    let program_args = shell_words::split(&entry.command)
+        .map_err(|error| format!("Invalid autostart command: {error}"))?;
+    if program_args.first().is_none_or(String::is_empty) {
+        return Err("Autostart command must name an executable".into());
+    }
     let args_xml = program_args
         .iter()
         .map(|arg| format!("    <string>{}</string>", xml_escape(arg)))
@@ -307,30 +314,6 @@ pub(super) fn sanitize_id(value: &str) -> String {
     } else {
         sanitized
     }
-}
-
-pub(super) fn shell_words(command: &str) -> Vec<String> {
-    let mut words = Vec::new();
-    let mut current = String::new();
-    let mut in_quotes = false;
-    for ch in command.chars() {
-        match ch {
-            '"' => in_quotes = !in_quotes,
-            ' ' if !in_quotes => {
-                if !current.is_empty() {
-                    words.push(std::mem::take(&mut current));
-                }
-            }
-            _ => current.push(ch),
-        }
-    }
-    if !current.is_empty() {
-        words.push(current);
-    }
-    if words.is_empty() {
-        words.push(command.to_string());
-    }
-    words
 }
 
 pub(super) fn xml_escape(value: &str) -> String {

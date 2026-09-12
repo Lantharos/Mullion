@@ -67,6 +67,7 @@ windows = { version = "0.62.2", features = [
 ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+shell-words = "1.1.1"
 objc2.workspace = true
 objc2-app-kit = { workspace = true, features = ["NSApplication"] }
 objc2-foundation = { workspace = true, features = ["NSArray", "NSBundle", "NSDictionary", "NSString", "NSURL"] }

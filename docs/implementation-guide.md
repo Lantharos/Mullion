@@ -494,6 +494,11 @@ Current primitives cover tray menus, autostart, global shortcuts, deep links, na
 single-instance activation, hidden windows, always-on-top windows, and palette behavior. Native
 platform registration belongs in `sabine-platform` or `sabine-service`; CEF code must not own it.
 
+Autostart commands use the target platform's command-line syntax. macOS parses POSIX quoting into
+LaunchAgent arguments without invoking a shell; quoted empty arguments and escaped characters are
+preserved, and malformed quoting is rejected. Disabling autostart removes the registered entry and
+reports filesystem or registry errors.
+
 Declare document MIME types and URL schemes in the app manifest:
 
 ```toml
