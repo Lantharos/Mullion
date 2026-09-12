@@ -3,6 +3,9 @@
 - Windows OSR connections switch accepted sockets to blocking reads before authentication,
   preventing startup disconnections when Chromium pauses between messages.
 - Windows prepares Chromium resource packs beside its runtime DLLs as well as ICU data.
+- Chromium uses D3D11 WARP when the Windows renderer selects a software adapter, including
+  virtual machines without GPU acceleration. Hardware adapters retain D3D11, and both paths
+  keep shared-texture rendering.
 - Windows installer checks require the installed app to present a Chromium frame and keep
   its OSR connection alive. Missing resource packs and connection recovery fail validation.
 

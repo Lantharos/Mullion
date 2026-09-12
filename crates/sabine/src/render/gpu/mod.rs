@@ -61,6 +61,8 @@ pub struct GpuRenderer {
     external_texture_releases: HashMap<String, Box<dyn FnOnce() + Send + 'static>>,
     #[cfg(windows)]
     submission_poller: retirement::SubmissionPoller,
+    #[cfg(windows)]
+    software_adapter: bool,
     scale_factor: f32,
     surface_alpha_is_opaque: bool,
     window: Arc<dyn Window>,
@@ -261,6 +263,8 @@ impl GpuRenderer {
             external_texture_releases: HashMap::new(),
             #[cfg(windows)]
             submission_poller,
+            #[cfg(windows)]
+            software_adapter: adapter.get_info().device_type == wgpu::DeviceType::Cpu,
             scale_factor: window.scale_factor() as f32,
             surface_alpha_is_opaque,
             window,
@@ -280,6 +284,11 @@ impl GpuRenderer {
         {
             false
         }
+    }
+
+    #[cfg(windows)]
+    pub(crate) fn uses_software_adapter(&self) -> bool {
+        self.software_adapter
     }
 
     pub fn resize(&mut self, width: u32, height: u32, scale_factor: f32) {
