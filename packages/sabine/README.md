@@ -38,6 +38,21 @@ events.fileDrag((event) => {
 });
 ```
 
+Requests accept an `AbortSignal` and a deadline in milliseconds:
+
+```js
+const controller = new AbortController();
+const result = invoke("app.search", { query: "notes" }, {
+  signal: controller.signal,
+  timeoutMs: 10000,
+});
+controller.abort();
+```
+
+The default deadline is one minute. Aborting, timing out, or leaving the page releases the pending
+request and ignores later responses. This does not interrupt a Rust handler that is already running;
+handlers remain responsible for bounding their own work. A page can retain at most 128 requests.
+
 ## Window controls
 
 ```js

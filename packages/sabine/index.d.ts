@@ -6,10 +6,16 @@ export type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
+export interface InvokeOptions {
+  signal?: AbortSignal;
+  /** Deadline in milliseconds; defaults to 60000. */
+  timeoutMs?: number;
+}
+
 export interface SabineBridge {
   readonly __native: true;
   readonly commands: string[];
-  invoke(name: string, params?: Record<string, unknown>): Promise<unknown>;
+  invoke(name: string, params?: Record<string, unknown>, options?: InvokeOptions): Promise<unknown>;
   listen(name: string, callback: (payload: unknown) => void): () => void;
 }
 
@@ -177,6 +183,7 @@ export declare function sabine(): SabineApi;
 export declare function invoke<T = unknown>(
   name: string,
   params?: Record<string, unknown>,
+  options?: InvokeOptions,
 ): Promise<T>;
 export declare function listen<T = unknown>(
   name: string,

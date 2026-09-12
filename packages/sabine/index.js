@@ -49,9 +49,10 @@ export function sabine() {
 /**
  * @param {string} name
  * @param {Record<string, unknown>} [params]
+ * @param {import("./index.d.ts").InvokeOptions} [options]
  */
-export function invoke(name, params = {}) {
-  return requireBridge().invoke(name, params);
+export function invoke(name, params = {}, options = {}) {
+  return requireBridge().invoke(name, params, options);
 }
 
 /**

@@ -30,8 +30,7 @@
   window.__sabineBridgeResolve = function (id, ok, payload) {
     const entry = pending.get(String(id));
     if (!entry) return;
-    pending.delete(String(id));
-    clearTimeout(entry.timer);
+    entry.cleanup();
     if (ok) {
       entry.resolve(payload);
     } else {
@@ -101,9 +100,17 @@
         if (!set.size) listeners.delete(key);
       };
     },
-    invoke(name, params = {}) {
+    async invoke(name, params = {}, options = {}) {
       if (!commands.has(name)) {
-        return Promise.reject(new Error("Sabine bridge command not registered: " + name));
+        throw new Error("Sabine bridge command not registered: " + name);
+      }
+      const { signal, timeoutMs = 60000 } = options;
+      signal?.throwIfAborted();
+      if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2147483647) {
+        throw new RangeError("Sabine bridge timeoutMs must be between 1 and 2147483647");
+      }
+      if (pending.size >= 128) {
+        throw new Error("Sabine bridge request capacity is exhausted");
       }
       const id = String(nextId++);
       const payload = encodeURIComponent(JSON.stringify(params));
@@ -113,25 +120,37 @@
         "?name=" + encodeURIComponent(name) +
         "&payload=" + payload;
       return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => {
+        const cleanup = () => {
           pending.delete(id);
-          try {
-            postNative("sabine://cancel/" + id);
-          } finally {
-            reject(new Error("Sabine bridge command timed out: " + name));
-          }
-        }, 60000);
-        pending.set(id, { resolve, reject, timer });
+          clearTimeout(timer);
+          signal?.removeEventListener("abort", abort);
+        };
+        const cancel = (reason) => {
+          cleanup();
+          try { postNative("sabine://cancel/" + id); } catch {}
+          reject(reason);
+        };
+        const abort = () => cancel(signal.reason);
+        const timer = setTimeout(() => {
+          cancel(new DOMException("Sabine bridge command timed out: " + name, "TimeoutError"));
+        }, timeoutMs);
+        pending.set(id, { resolve, reject, cleanup, cancel });
+        signal?.addEventListener("abort", abort, { once: true });
         try {
           postNative(url);
         } catch (error) {
-          clearTimeout(timer);
-          pending.delete(id);
+          cleanup();
           reject(error);
         }
       });
     },
   };
+
+  window.addEventListener("pagehide", () => {
+    for (const entry of pending.values()) {
+      entry.cancel(new DOMException("Sabine page was hidden", "AbortError"));
+    }
+  });
 
   window.sabine.activity = {
     begin(options = {}) {
