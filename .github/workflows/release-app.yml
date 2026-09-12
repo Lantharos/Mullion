@@ -7,6 +7,11 @@ on:
         description: Exact Sabine tag used to build the app
         required: true
         type: string
+      accept_wix_eula:
+        description: Accept the WiX 7 EULA for MSI builds (https://docs.firegiant.com/wix/osmf/)
+        required: false
+        type: boolean
+        default: false
       upgrade_from_sabine_version:
         description: Optional older Sabine tag to seed before the Windows launch test
         required: false
@@ -77,8 +82,13 @@ jobs:
       - name: Install Windows packaging dependencies
         if: runner.os == 'Windows'
         run: |
+          if ('${{ inputs.accept_wix_eula }}' -ne 'true') {
+            throw 'MSI builds require WiX 7 license acceptance. Review https://docs.firegiant.com/wix/osmf/ and set accept_wix_eula: true.'
+          }
           dotnet tool install --global wix --version 7.0.0
           if ($LASTEXITCODE -ne 0) { throw "WiX installation failed" }
+          wix eula accept wix7
+          if ($LASTEXITCODE -ne 0) { throw "WiX EULA acceptance failed" }
           wix extension add --global WixToolset.UI.wixext/7.0.0 WixToolset.Util.wixext/7.0.0
           if ($LASTEXITCODE -ne 0) { throw "WiX extension installation failed; check WiX EULA acceptance" }
       - name: Install matching Sabine CLI

@@ -185,6 +185,10 @@ a GitHub Actions secret, enables immutable Releases, and writes the repository a
 sabine release-init --repository owner/repository
 ```
 
+MSI builds require accepting the [WiX 7 EULA](https://docs.firegiant.com/wix/osmf/).
+After reviewing its terms, add `accept_wix_eula: true` to the reusable release job's `with` inputs.
+For local MSI builds, run `wix eula accept wix7` once on the build machine.
+
 For each release, set the version in `Sabine.toml`, commit it, and push the matching tag:
 
 ```sh

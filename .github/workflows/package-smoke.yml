@@ -66,6 +66,8 @@ jobs:
         run: |
           dotnet tool install --global wix --version 7.0.0
           if ($LASTEXITCODE -ne 0) { throw "WiX installation failed" }
+          wix eula accept wix7
+          if ($LASTEXITCODE -ne 0) { throw "WiX EULA acceptance failed" }
           wix extension add --global WixToolset.UI.wixext/7.0.0 WixToolset.Util.wixext/7.0.0
           if ($LASTEXITCODE -ne 0) { throw "WiX extension installation failed; check WiX EULA acceptance" }
       - name: Install Windows setup tools
