@@ -253,6 +253,15 @@ impl OsrNativeHost {
                 return;
             }
         };
+        #[cfg(windows)]
+        if let Some(renderer) = &self.renderer {
+            let luid = crate::osr::accel::adapter_luid(renderer);
+            command.arg("--use-angle=d3d11");
+            command.arg(format!("--use-adapter-luid={luid}"));
+            if std::env::var_os("SABINE_TRACE").is_some() {
+                eprintln!("Sabine GPU: Chromium adapter LUID={luid}");
+            }
+        }
         let mut child = match command.spawn() {
             Ok(child) => child,
             Err(error) => {

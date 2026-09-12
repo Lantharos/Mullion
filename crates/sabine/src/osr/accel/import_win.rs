@@ -6,6 +6,13 @@ use crate::render::GpuRenderer;
 
 const CEF_COLOR_TYPE_BGRA_8888: u32 = 1;
 
+pub(crate) fn adapter_luid(renderer: &GpuRenderer) -> String {
+    let device =
+        unsafe { renderer.device().as_hal::<Dx12>() }.expect("Windows OSR uses a D3D12 device");
+    let luid = unsafe { device.raw_device().GetAdapterLuid() };
+    format!("{},{}", luid.HighPart, luid.LowPart)
+}
+
 /// Open the Sabine-owned D3D12 resource on wgpu's D3D12 device.
 ///
 /// This handle is deliberately not CEF's paint-callback handle. The native

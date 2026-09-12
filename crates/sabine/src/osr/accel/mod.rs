@@ -4,7 +4,7 @@ use crate::osr::protocol::OsrAccelFrame;
 #[cfg(windows)]
 use crate::render::GpuRenderer;
 #[cfg(windows)]
-pub(crate) use import_win::{close_imported_handle, try_import_d3d12};
+pub(crate) use import_win::{adapter_luid, close_imported_handle, try_import_d3d12};
 
 #[cfg(windows)]
 pub(crate) fn install_imported_texture(

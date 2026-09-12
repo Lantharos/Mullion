@@ -169,7 +169,11 @@ backend connection instead of repeatedly initializing graphics drivers.
 - **macOS** currently uses software `OnPaint`. An IOSurface path must copy or retain CEF's pooled
   resource before the callback returns; passing an IOSurface ID asynchronously is not sufficient.
 
-Windows uses wgpu D3D12 rather than forcing Vulkan. Transparent windows use a DirectComposition
+Windows uses wgpu D3D12. Chromium receives the compositor device’s DXGI adapter LUID and uses
+ANGLE D3D11 on that adapter. The copy device is created from the adapter that owns Chromium’s
+shared texture, so hybrid-GPU systems do not depend on independently selected default adapters.
+`SABINE_TRACE=1` reports the compositor adapter and the LUID passed to Chromium.
+Transparent windows use a DirectComposition
 visual without an HWND redirection bitmap, allowing premultiplied OSR pixels to reveal the native
 backdrop. Sabine applies Acrylic, blur, Mica, and Mica Alt directly through Win32 composition APIs.
 On macOS, Sabine installs its own semantic `NSVisualEffectView` beneath the Metal content view.

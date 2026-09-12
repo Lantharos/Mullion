@@ -5,7 +5,8 @@
 #include <d3d11_4.h>
 #include <d3d12.h>
 #include <dxgi.h>
-#include <dxgi1_2.h>
+#include <dxgi1_4.h>
+#include <wrl/client.h>
 
 #include <cstdio>
 #include <map>
@@ -13,18 +14,6 @@
 
 namespace sabine_osr {
 namespace {
-
-// ☢️ WARNING: RADIOACTIVE WINDOWS SLOP BELOW ☢️
-//
-// CEF owns an accelerated-paint texture only until its callback returns. This
-// module opens that texture on the same DXGI adapter, copies it into a Sabine-
-// owned D3D12 shareable resource through D3D11, waits for an ordered D3D11
-// fence, and retains the copied slot until the compositor acknowledges it.
-// Seemingly redundant COM interfaces and handle transitions enforce those
-// ownership and ordering rules. Some of it may look unnecessary.
-// Unfortunately, Windows disagrees.
-//
-// If it works, assume there is a reason.
 
 constexpr uint32_t kCefColorTypeBgra8888 = 1;
 constexpr DWORD kGpuFenceTimeoutMs = 1000;
@@ -83,11 +72,27 @@ std::map<std::string, uint32_t> g_next_slot;
 uint64_t g_next_token = 1;
 constexpr uint32_t kSlotsPerSurface = 4;
 
-bool EnsureDevice() {
+bool EnsureDevice(HANDLE shared_resource) {
   if (g_d3d11.device && g_d3d11.device1 && g_d3d11.device5 &&
       g_d3d11.context && g_d3d11.context4 && g_d3d11.fence &&
       g_d3d11.fence_event && g_d3d11.device12) {
     return true;
+  }
+  Microsoft::WRL::ComPtr<IDXGIFactory4> factory;
+  HRESULT hr = CreateDXGIFactory1(IID_PPV_ARGS(&factory));
+  LUID luid{};
+  if (SUCCEEDED(hr)) {
+    hr = factory->GetSharedResourceAdapterLuid(shared_resource, &luid);
+  }
+  Microsoft::WRL::ComPtr<IDXGIAdapter> source_adapter;
+  if (SUCCEEDED(hr)) {
+    hr = factory->EnumAdapterByLuid(luid, IID_PPV_ARGS(&source_adapter));
+  }
+  if (FAILED(hr)) {
+    std::fprintf(stderr,
+                 "Sabine CEF: could not identify shared texture adapter (hr=0x%08lx)\n",
+                 static_cast<unsigned long>(hr));
+    return false;
   }
   D3D_FEATURE_LEVEL feature_levels[] = {
       D3D_FEATURE_LEVEL_11_1,
@@ -96,16 +101,22 @@ bool EnsureDevice() {
   D3D_FEATURE_LEVEL chosen = D3D_FEATURE_LEVEL_11_0;
   ID3D11Device* device = nullptr;
   ID3D11DeviceContext* context = nullptr;
-  HRESULT hr = D3D11CreateDevice(
-      nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, feature_levels,
+  hr = D3D11CreateDevice(
+      source_adapter.Get(), D3D_DRIVER_TYPE_UNKNOWN, nullptr, 0, feature_levels,
       static_cast<UINT>(sizeof(feature_levels) / sizeof(feature_levels[0])),
       D3D11_SDK_VERSION, &device, &chosen, &context);
   if (hr == E_INVALIDARG) {
     hr = D3D11CreateDevice(
-        nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, &feature_levels[1], 1,
+        source_adapter.Get(), D3D_DRIVER_TYPE_UNKNOWN, nullptr, 0, &feature_levels[1], 1,
         D3D11_SDK_VERSION, &device, &chosen, &context);
   }
   if (FAILED(hr) || !device || !context) {
+    std::fprintf(stderr,
+                 "Sabine CEF: D3D11 device creation failed on adapter %ld,%lu (hr=0x%08lx)\n",
+                 static_cast<long>(luid.HighPart), static_cast<unsigned long>(luid.LowPart),
+                 static_cast<unsigned long>(hr));
+    if (device) device->Release();
+    if (context) context->Release();
     return false;
   }
 
@@ -371,7 +382,7 @@ bool CopyAcceleratedD3d11Frame(const std::string& slot_key,
       cef_format != kCefColorTypeBgra8888) {
     return false;
   }
-  if (!EnsureDevice()) {
+  if (!EnsureDevice(cef_shared_handle)) {
     return false;
   }
 
