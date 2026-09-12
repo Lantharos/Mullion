@@ -117,6 +117,10 @@ jobs:
         run: |
           $offline = @()
           if ('${{ runner.os }}' -eq 'Windows') { $offline = @('--offline') }
+          if ('${{ matrix.target }}' -eq 'exe') {
+            New-Item release-probe/ui/public -ItemType Directory -Force | Out-Null
+            Set-Content release-probe/ui/public/obsolete.txt 'Owned by the first release'
+          }
           cargo run --release -p sabine-cli -- bundle release-probe --target "${{ matrix.target }}" --release @offline
           if ($LASTEXITCODE -ne 0) { throw "package build failed" }
           $artifacts = @(Get-ChildItem dist/artifacts -File)
@@ -149,10 +153,6 @@ jobs:
           if ($headers -notmatch '(?i)Subsystem\s+00000002\s+\(Windows GUI\)') {
             throw "Windows executable is not marked as a GUI application"
           }
-          $wixSource = Get-Content (Get-ChildItem dist/msi -Filter installer.wxs -File -Recurse | Select-Object -First 1) -Raw
-          if ($wixSource -notmatch '<Icon Id="AppIcon.ico"' -or $wixSource -notmatch 'Icon="AppIcon.ico"') {
-            throw "MSI shortcut icon metadata is missing"
-          }
           $log = Join-Path $env:RUNNER_TEMP "sabine-msi-install.log"
           $install = Start-Process msiexec.exe -ArgumentList @('/i', $msi[0].FullName, '/qn', '/norestart', '/l*v', $log) -PassThru
           Wait-InstallerExit $install
@@ -165,6 +165,12 @@ jobs:
           if ($null -eq $installedExe -or -not (Test-Path (Join-Path $appDir 'resources/windows-app.ico'))) {
             throw "MSI did not install the x64 application and icon under the current user profile"
           }
+          $shortcutPath = Join-Path ([Environment]::GetFolderPath('Programs')) 'release-probe.lnk'
+          if (-not (Test-Path $shortcutPath)) { throw 'MSI did not install its Start Menu shortcut' }
+          $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcutPath)
+          $iconPath = ($shortcut.IconLocation -replace ',\d+$', '').Trim('"')
+          $icon = [System.Drawing.Icon]::new($iconPath)
+          $icon.Dispose()
           $registry = Join-Path $env:LOCALAPPDATA 'Sabine/apps.json'
           $registered = (Get-Content $registry -Raw | ConvertFrom-Json).apps
           if (-not $registered.PSObject.Properties['dev.sabine.release-probe']) {
@@ -218,6 +224,8 @@ jobs:
           $logs = Join-Path $env:LOCALAPPDATA 'sabine/logs/installer.jsonl'
           $app = $null
           try {
+            Test-SetupCancellation $setup.FullName (Join-Path $env:RUNNER_TEMP 'cancelled-application')
+            $userFile = Join-Path $appDir 'my-notes.txt'
             foreach ($operation in @('install', 'repair')) {
               $process = Start-Process $setup.FullName -ArgumentList '/S' -PassThru
               Wait-InstallerExit $process
@@ -229,7 +237,25 @@ jobs:
               if (-not $registered.PSObject.Properties[$appId]) {
                 throw "Setup finished without registering the application"
               }
+              if ($operation -eq 'install') {
+                Set-Content $userFile 'Keep my notes'
+              } elseif ((Get-Content $userFile -Raw).Trim() -ne 'Keep my notes') {
+                throw 'Repair changed a user-created file'
+              }
             }
+            Remove-Item release-probe/ui/public/obsolete.txt
+            Set-Content release-probe/ui/public/replacement.txt 'Owned by the second release'
+            & target/release/sabine.exe bundle release-probe --target exe --release --offline --version 0.1.1
+            if ($LASTEXITCODE -ne 0) { throw 'Upgrade package build failed' }
+            $upgrade = Get-ChildItem dist/artifacts -Filter '*-0.1.1-exe.exe' -File | Select-Object -First 1
+            $process = Start-Process $upgrade.FullName -ArgumentList '/S' -PassThru
+            Wait-InstallerExit $process
+            if ($process.ExitCode -ne 0) { throw "Upgrade failed with $($process.ExitCode)" }
+            if (Get-ChildItem $appDir -Filter obsolete.txt -Recurse) { throw 'Upgrade retained obsolete packaged files' }
+            if (-not (Get-ChildItem $appDir -Filter replacement.txt -Recurse)) { throw 'Upgrade omitted new packaged files' }
+            if ((Get-Content $userFile -Raw).Trim() -ne 'Keep my notes') { throw 'Upgrade changed user data' }
+            $registered = (Get-Content $registry -Raw | ConvertFrom-Json).apps
+            if ($registered.$appId.version -ne '0.1.1') { throw 'Upgrade left the old application registration' }
             $app = Start-Process (Join-Path $appDir 'release-probe.exe') -PassThru
             Start-Sleep -Seconds 8
             if ($app.HasExited) { throw "Installed application exited with code $($app.ExitCode)" }
@@ -244,6 +270,7 @@ jobs:
                 Start-Sleep -Milliseconds 100
               }
               if (Test-Path $uninstaller) { throw "Uninstaller did not remove the package" }
+              if ((Get-Content $userFile -Raw).Trim() -ne 'Keep my notes') { throw 'Uninstall removed user data' }
               $registered = (Get-Content $registry -Raw | ConvertFrom-Json).apps
               if ($registered.PSObject.Properties[$appId]) { throw "Uninstall left the app registered" }
               if (-not (Test-Path (Join-Path $env:LOCALAPPDATA 'Sabine/bin/current.json'))) {

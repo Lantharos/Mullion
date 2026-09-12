@@ -12,7 +12,7 @@ use crate::types::{
 };
 use crate::{release_is_soaked, verify_app_release};
 
-mod installers;
+pub(crate) mod installers;
 
 pub(crate) use installers::safe_relative_path;
 use installers::{
@@ -252,7 +252,7 @@ impl SabineService {
         Ok(true)
     }
 
-    fn app_update_lock(&self, id: &str) -> ServiceResult<sabine_runtime::FileLock> {
+    pub(crate) fn app_update_lock(&self, id: &str) -> ServiceResult<sabine_runtime::FileLock> {
         validate_app_id(id)?;
         Ok(sabine_runtime::FileLock::acquire(
             &self.root.join("apps").join(id).join("update.lock"),

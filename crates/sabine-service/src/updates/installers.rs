@@ -51,7 +51,7 @@ pub(super) fn install_archive(
     Ok(())
 }
 
-pub(super) fn validate_executable(path: &Path) -> ServiceResult<()> {
+pub(crate) fn validate_executable(path: &Path) -> ServiceResult<()> {
     let metadata = std::fs::metadata(path).map_err(|error| {
         ServiceError::Update(format!(
             "invalid app executable {}: {error}",

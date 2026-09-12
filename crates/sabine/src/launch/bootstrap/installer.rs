@@ -11,14 +11,22 @@ pub(crate) fn requested(args: &[String]) -> bool {
 }
 
 pub(crate) fn run(config: &SabineWindowConfig, args: &[String]) -> ! {
+    let cancelled = || {
+        option(args, "--sabine-install-cancel")
+            .is_some_and(|path| std::path::Path::new(path).exists())
+    };
     let result = if args.iter().any(|arg| arg == UNINSTALL_ARG) {
         unregister(config)
     } else {
-        prepare(config)
+        prepare(config, option(args, "--sabine-install-to"), cancelled)
     };
     match result {
         Ok(()) => std::process::exit(0),
         Err(error) => {
+            if cancelled() {
+                println!("Installation cancelled.");
+                std::process::exit(1602);
+            }
             sabine_runtime::report_error("installer", &error);
             println!("{error}");
             println!(
@@ -30,10 +38,25 @@ pub(crate) fn run(config: &SabineWindowConfig, args: &[String]) -> ! {
     }
 }
 
-fn prepare(config: &SabineWindowConfig) -> Result<(), String> {
+fn option<'a>(args: &'a [String], name: &str) -> Option<&'a str> {
+    args.iter()
+        .position(|arg| arg == name)
+        .and_then(|index| args.get(index + 1))
+        .map(String::as_str)
+}
+
+fn prepare(
+    config: &SabineWindowConfig,
+    destination: Option<&str>,
+    cancelled: impl Fn() -> bool,
+) -> Result<(), String> {
     config.validate().map_err(|error| error.to_string())?;
     let manifest = super::app_manifest(config).ok_or("The app has no installation identity")?;
     let report = prepare_machine_with_progress(config.runtime.clone(), None, |progress| {
+        if cancelled() {
+            println!("Installation cancelled.");
+            std::process::exit(1602);
+        }
         if let Some(fraction) = progress.fraction {
             println!(
                 "{:>3}% {}",
@@ -58,9 +81,26 @@ fn prepare(config: &SabineWindowConfig) -> Result<(), String> {
     sabine_runtime::prepare_runtime_assets(runtime.location.path())
         .map_err(|error| error.to_string())?;
     sabine_host::validate_host_protocol(&host, runtime.location.path())?;
-    SabineService::default()
-        .register(manifest)
-        .map_err(|error| error.to_string())?;
+    if let Some(destination) = destination {
+        println!("Installing application files...");
+        let source = manifest
+            .executable
+            .parent()
+            .ok_or("The installer payload has no directory")?
+            .to_path_buf();
+        SabineService::default()
+            .install_app_payload(
+                &source,
+                std::path::Path::new(destination),
+                manifest,
+                cancelled,
+            )
+            .map_err(|error| error.to_string())?;
+    } else {
+        SabineService::default()
+            .register(manifest)
+            .map_err(|error| error.to_string())?;
+    }
     println!("Installation is ready.");
     Ok(())
 }

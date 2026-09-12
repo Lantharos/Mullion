@@ -217,7 +217,8 @@ console windows; the native setup progress window is the only visible first-laun
 `sabine bundle --target exe` creates a Windows setup wizard with NSIS 3.12. It installs for the
 current user, prepares the shared runtime inside the installer, creates Start Menu shortcuts, and
 registers an uninstaller. Setup shows progress and errors in its details pane and offers Retry when
-preparation fails. Rerun the installer to repair an installation; `/S` runs it silently. Uninstalling
+preparation fails. Cancel stops setup, and failed upgrades restore the previous installation.
+Rerun the installer to repair an installation; `/S` runs it silently. Uninstalling
 an app retains shared Sabine components and user-created data.
 
 Pass `--offline` to `sabine bundle` to include a working CEF runtime and Sabine system bootstrap.

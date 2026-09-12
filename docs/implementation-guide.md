@@ -614,8 +614,9 @@ selected by their native protocol rather than requiring an identical app framewo
 ### Windows setup wizard
 
 The `exe` bundle target generates an NSIS wizard. The installer runs the app with
-`--sabine-install` after copying its files. This prepares the service and Chromium runtime,
-checks native host compatibility, and registers the app without launching its window. Progress
+`--sabine-install` from a temporary payload, passing the chosen destination and cancellation
+file. This prepares the service and Chromium runtime before replacing the installed app,
+checks native host compatibility, and registers the final executable without launching its window. Progress
 and failures go to the installer details pane; failure returns a nonzero exit code.
 `--sabine-uninstall` removes the registration before the uninstaller deletes packaged files.
 These modes are handled by `SabineWindow::main` and its process variants.
@@ -624,3 +625,10 @@ The default destination is `%LOCALAPPDATA%\Programs\<app-id>`. Installation and 
 to the current user. The uninstaller deletes the files included by the package and leaves other
 files in place. Shared runtimes and the service remain available to other Sabine apps.
 Offline bundles supply the same setup path with embedded dependencies.
+
+Setup records the files owned by the package. Repair and upgrade stage the new payload on the
+destination volume, move user-created files and links without copying their contents, and publish
+the replacement with a recoverable journal. Failed registration restores both files and registration;
+an interrupted replacement is recovered on the next setup attempt. Obsolete packaged files are
+removed. Cancel stops preparation or rolls back staging, returning Windows Installer cancellation
+code 1602. Choose an empty directory when replacing a package from another installation system.

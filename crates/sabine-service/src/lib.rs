@@ -1,6 +1,7 @@
 mod archive;
 mod http;
 mod install;
+mod installer_payload;
 mod lifecycle;
 mod registry;
 mod rollout;
