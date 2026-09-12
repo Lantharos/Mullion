@@ -18,12 +18,6 @@ pub(super) fn sanitize_desktop_id(value: &str) -> String {
     })
 }
 
-pub(super) fn sanitize_scheme(value: &str) -> String {
-    sanitize_with(&value.to_ascii_lowercase(), |ch| {
-        ch.is_ascii_alphanumeric() || matches!(ch, '+' | '.' | '-')
-    })
-}
-
 pub(super) fn sanitize_native_host_name(value: &str) -> String {
     sanitize_with(&value.to_ascii_lowercase(), |ch| {
         ch.is_ascii_alphanumeric() || matches!(ch, '_' | '.')

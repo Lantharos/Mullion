@@ -23,7 +23,9 @@ pub fn info_plist(
     version: &str,
     executable: &str,
     has_icon: bool,
+    mime_types: &[String],
 ) -> Result<String, String> {
+    crate::desktop_types::validate(mime_types)?;
     let version = semver::Version::parse(version).map_err(|error| error.to_string())?;
     let version = format!("{}.{}.{}", version.major, version.minor, version.patch);
     let icon = if has_icon {
@@ -31,6 +33,19 @@ pub fn info_plist(
     } else {
         ""
     };
+    let mut types = String::new();
+    let schemes = crate::desktop_types::schemes(mime_types)
+        .map(|scheme| format!("<string>{}</string>", xml(scheme)))
+        .collect::<String>();
+    if !schemes.is_empty() {
+        types.push_str(&format!("<key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>{}</string><key>CFBundleTypeRole</key><string>Editor</string><key>CFBundleURLSchemes</key><array>{schemes}</array></dict></array>\n", xml(id)));
+    }
+    let documents = mime_types.iter().filter(|mime| !mime.starts_with("x-scheme-handler/")).map(|mime| format!("<dict><key>CFBundleTypeName</key><string>{0}</string><key>CFBundleTypeRole</key><string>Viewer</string><key>LSHandlerRank</key><string>Alternate</string><key>CFBundleTypeMIMETypes</key><array><string>{0}</string></array></dict>", xml(mime))).collect::<String>();
+    if !documents.is_empty() {
+        types.push_str(&format!(
+            "<key>CFBundleDocumentTypes</key><array>{documents}</array>\n"
+        ));
+    }
     Ok(format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -45,6 +60,7 @@ pub fn info_plist(
 <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
 <key>LSMinimumSystemVersion</key><string>12.0</string>
 {icon}
+{types}
 </dict></plist>
 "#,
         xml(id),

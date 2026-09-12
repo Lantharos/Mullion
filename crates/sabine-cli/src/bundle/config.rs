@@ -180,15 +180,7 @@ pub(super) fn resolve_app(source: &Path, overrides: ConfigOverrides) -> Result<B
         }
     }
     semver::Version::parse(&version).map_err(|error| format!("invalid app version: {error}"))?;
-    for mime in &sabine.app.mime_types {
-        if !mime.contains('/')
-            || !mime
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || b"/-._+".contains(&byte))
-        {
-            return Err(format!("invalid app MIME type: {mime}"));
-        }
-    }
+    crate::desktop_types::validate(&sabine.app.mime_types)?;
     Ok(BundleApp {
         id,
         name,

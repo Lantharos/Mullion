@@ -67,5 +67,7 @@ windows = { version = "0.62.2", features = [
 ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+objc2.workspace = true
+objc2-foundation = { workspace = true, features = ["NSArray", "NSBundle", "NSDictionary", "NSString"] }
 global-hotkey = "0.8.0"
 tray-icon = "0.24.2"

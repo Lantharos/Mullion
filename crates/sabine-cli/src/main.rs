@@ -1,5 +1,6 @@
 mod bundle;
 mod commands;
+mod desktop_types;
 mod dev;
 mod icon_assets;
 mod macos_bundle;

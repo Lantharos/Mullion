@@ -94,6 +94,11 @@ impl Default for SabineWindowConfig {
 
 impl SabineWindowConfig {
     pub(crate) fn validate(&self) -> SabineResult<()> {
+        for registration in &self.desktop_services.deep_links {
+            registration
+                .validate()
+                .map_err(|message| SabineError::CreationFailed { message })?;
+        }
         let app_id = self.app_id.as_deref().map(str::trim).unwrap_or_default();
         if !sabine_service::valid_app_id(app_id) {
             return Err(SabineError::CreationFailed {

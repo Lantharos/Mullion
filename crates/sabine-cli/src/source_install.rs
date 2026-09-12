@@ -91,6 +91,7 @@ fn detect_source_app(
 ) -> Result<SourceApp, String> {
     let source = absolute_path(source)?;
     let metadata = source_assets::metadata(&source);
+    crate::desktop_types::validate(&metadata.mime_types)?;
     let package_name = package_name(&source.join("Cargo.toml"));
     let version =
         package_value(&source.join("Cargo.toml"), "version").unwrap_or_else(|| "0.1.0".to_string());

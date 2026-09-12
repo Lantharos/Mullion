@@ -26,6 +26,8 @@ struct AppSection {
     id: Option<String>,
     name: Option<String>,
     version: Option<String>,
+    #[serde(default)]
+    mime_types: Vec<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -78,6 +80,22 @@ impl SabineWindow {
         }
         if let Some(version) = file.app.version {
             self = self.app_version(version);
+        }
+        let schemes = file
+            .app
+            .mime_types
+            .iter()
+            .filter_map(|mime| mime.strip_prefix("x-scheme-handler/"))
+            .collect::<Vec<_>>();
+        if !schemes.is_empty() {
+            let id = self
+                .config
+                .app_id
+                .clone()
+                .ok_or_else(|| SabineError::CreationFailed {
+                    message: "URL handlers require an app id".into(),
+                })?;
+            self = self.deep_link(sabine_platform::DeepLinkRegistration::new(id, schemes));
         }
         self.config.app_update = file.updates;
         if let Some(entry) = file.web.entry {

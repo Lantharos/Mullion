@@ -20,10 +20,10 @@ use tray_icon::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
 };
 use windows::Win32::{
-    Foundation::ERROR_SUCCESS,
+    Foundation::{ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND, ERROR_SUCCESS},
     System::Registry::{
         HKEY_CURRENT_USER, KEY_WRITE, REG_OPTION_NON_VOLATILE, REG_SZ, RegCloseKey,
-        RegCreateKeyExW, RegDeleteTreeW, RegSetValueExW,
+        RegCreateKeyExW, RegDeleteKeyValueW, RegSetValueExW,
     },
 };
 
@@ -186,16 +186,17 @@ pub(super) fn write_autostart_entry(entry: &AutostartEntry) -> Result<(), String
     if entry.enabled {
         set_registry_string(HKEY_CURRENT_USER, &key_path, &name, &entry.command)?;
     } else {
-        let _ = delete_registry_value(HKEY_CURRENT_USER, &key_path, &name);
+        delete_registry_value(HKEY_CURRENT_USER, &key_path, &name)?;
     }
     Ok(())
 }
 
 pub(super) fn register_deep_links(registration: &DeepLinkRegistration) -> Result<(), String> {
+    registration.validate()?;
     let exe = std::env::current_exe().map_err(|error| error.to_string())?;
     let command = format!("\"{}\" \"%1\"", exe.display());
     for scheme in &registration.schemes {
-        let scheme = sanitize_scheme(scheme);
+        let scheme = scheme.to_ascii_lowercase();
         let base = format!("Software\\Classes\\{scheme}");
         set_registry_string(HKEY_CURRENT_USER, &base, "", &format!("URL:{scheme}"))?;
         set_registry_string(HKEY_CURRENT_USER, &base, "URL Protocol", "")?;
@@ -302,10 +303,23 @@ pub(super) fn delete_registry_value(
     subkey: &str,
     value_name: &str,
 ) -> Result<(), String> {
-    let path = format!("{subkey}\\{value_name}");
-    let wide = wide_null(&path);
-    let _ = unsafe { RegDeleteTreeW(root, windows::core::PCWSTR(wide.as_ptr())) };
-    Ok(())
+    let subkey = wide_null(subkey);
+    let value = wide_null(value_name);
+    let result = unsafe {
+        RegDeleteKeyValueW(
+            root,
+            windows::core::PCWSTR(subkey.as_ptr()),
+            windows::core::PCWSTR(value.as_ptr()),
+        )
+    };
+    if matches!(
+        result,
+        ERROR_SUCCESS | ERROR_FILE_NOT_FOUND | ERROR_PATH_NOT_FOUND
+    ) {
+        Ok(())
+    } else {
+        Err(format!("RegDeleteKeyValueW failed: {result:?}"))
+    }
 }
 
 pub(super) fn local_app_data() -> Result<PathBuf, String> {
@@ -338,10 +352,6 @@ pub(super) fn sanitize_id(value: &str) -> String {
     } else {
         sanitized
     }
-}
-
-pub(super) fn sanitize_scheme(value: &str) -> String {
-    sanitize_id(&value.to_ascii_lowercase())
 }
 
 pub(super) fn sanitize_native_host_name(value: &str) -> String {

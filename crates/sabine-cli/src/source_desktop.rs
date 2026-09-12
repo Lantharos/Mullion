@@ -132,6 +132,7 @@ pub fn install_macos_app(
             &app.version,
             "launch",
             app.icon.is_some(),
+            &app.mime_types,
         )?,
     )
     .map_err(|error| error.to_string())?;

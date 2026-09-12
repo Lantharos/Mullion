@@ -13,6 +13,12 @@ pub(super) fn runtime_manifest(
         quote(&app.name),
         quote(&app.version)
     );
+    if !app.mime_types.is_empty() {
+        manifest.push_str(&format!(
+            "mime_types = {}\n",
+            serde_json::to_string(&app.mime_types).map_err(|error| error.to_string())?
+        ));
+    }
     if let Some(web) = &app.web {
         manifest.push_str("\n[web]\n");
         if let Some((_, relative_entry)) = web.assets()? {

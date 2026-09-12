@@ -79,6 +79,31 @@ pub struct DeepLinkRegistration {
 }
 
 impl DeepLinkRegistration {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.id.is_empty()
+            || matches!(self.id.as_str(), "." | "..")
+            || !self
+                .id
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b".-_".contains(&byte))
+        {
+            return Err("URL handler id must be a nonempty desktop identifier".into());
+        }
+        for scheme in &self.schemes {
+            if !scheme
+                .as_bytes()
+                .first()
+                .is_some_and(u8::is_ascii_alphabetic)
+                || !scheme
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || b"+.-".contains(&byte))
+            {
+                return Err(format!("invalid URL scheme: {scheme}"));
+            }
+        }
+        Ok(())
+    }
+
     pub fn new(
         id: impl Into<String>,
         schemes: impl IntoIterator<Item = impl Into<String>>,

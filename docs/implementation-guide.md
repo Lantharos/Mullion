@@ -486,6 +486,24 @@ Current primitives cover tray menus, autostart, global shortcuts, deep links, na
 single-instance activation, hidden windows, always-on-top windows, and palette behavior. Native
 platform registration belongs in `sabine-platform` or `sabine-service`; CEF code must not own it.
 
+Declare document MIME types and URL schemes in the app manifest:
+
+```toml
+[app]
+mime_types = ["text/plain", "x-scheme-handler/my-app"]
+```
+
+The bundler includes these declarations in Linux desktop entries and macOS `CFBundleURLTypes` /
+`CFBundleDocumentTypes`, and preserves them in the installed runtime manifest. URL schemes start
+with a letter and contain lowercase letters, digits, `+`, `.` or `-`.
+
+Windows registers schemes for the current user. Linux creates a hidden desktop handler pointing to
+the running executable before updating `mimeapps.list`; unrelated associations are preserved and
+Sabine registrations are serialized. On macOS, URL schemes must be declared in the application
+bundle before signing. A runtime `.deep_link(...)` call checks those declarations and reports a
+missing scheme instead of writing an unused registration file. Run the bundled app when testing
+macOS URL handlers.
+
 ## Bundles and installs
 
 The CLI reads `Sabine.toml`, builds web assets and the selected Rust package, writes a normalized

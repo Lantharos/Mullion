@@ -215,27 +215,43 @@ pub(super) fn write_autostart_entry(entry: &AutostartEntry) -> Result<(), String
 }
 
 pub(super) fn register_deep_links(registration: &DeepLinkRegistration) -> Result<(), String> {
-    // Runtime URL-handler registration on macOS requires an app bundle
-    // Info.plist. Persist a helper plist under Application Support so
-    // packagers / CI can merge the schemes, and best-effort write a
-    // defaults domain hint for development shells.
-    let support = home_dir()?
-        .join("Library")
-        .join("Application Support")
-        .join("sabine")
-        .join("deep-links");
-    fs::create_dir_all(&support).map_err(|error| error.to_string())?;
-    let path = support.join(format!("{}.json", sanitize_id(&registration.id)));
-    let payload = serde_json::json!({
-        "id": registration.id,
-        "schemes": registration.schemes,
-        "executable": std::env::current_exe().ok(),
-    });
-    fs::write(
-        path,
-        serde_json::to_string_pretty(&payload).map_err(|error| error.to_string())?,
-    )
-    .map_err(|error| error.to_string())?;
+    use objc2::runtime::AnyObject;
+    use objc2_foundation::{NSArray, NSBundle, NSDictionary, NSString, ns_string};
+
+    registration.validate()?;
+    if registration.schemes.is_empty() {
+        return Ok(());
+    }
+    let bundle = NSBundle::mainBundle();
+    let types = bundle
+        .objectForInfoDictionaryKey(ns_string!("CFBundleURLTypes"))
+        .and_then(|types| types.downcast::<NSArray<AnyObject>>().ok());
+    let mut declared = std::collections::BTreeSet::new();
+    if let Some(types) = types {
+        for entry in &types {
+            let Ok(entry) = entry.downcast::<NSDictionary<NSString, AnyObject>>() else {
+                continue;
+            };
+            let Some(schemes) = entry
+                .objectForKey(ns_string!("CFBundleURLSchemes"))
+                .and_then(|value| value.downcast::<NSArray<AnyObject>>().ok())
+            else {
+                continue;
+            };
+            for scheme in &schemes {
+                if let Ok(scheme) = scheme.downcast::<NSString>() {
+                    declared.insert(scheme.to_string().to_ascii_lowercase());
+                }
+            }
+        }
+    }
+    for scheme in &registration.schemes {
+        if !declared.contains(&scheme.to_ascii_lowercase()) {
+            return Err(format!(
+                "URL scheme {scheme} is missing from the application bundle; add x-scheme-handler/{scheme} to app.mime_types in Sabine.toml and rebuild the macOS bundle"
+            ));
+        }
+    }
     Ok(())
 }
 

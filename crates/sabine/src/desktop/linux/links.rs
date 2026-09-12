@@ -19,16 +19,59 @@ pub(super) fn write_autostart_entry(entry: &AutostartEntry) -> io::Result<()> {
 }
 
 pub(super) fn register_deep_links(registration: &DeepLinkRegistration) -> io::Result<()> {
-    let desktop_id = format!("{}.desktop", sanitize_desktop_id(&registration.id));
-    let path = config_home()?.join("mimeapps.list");
-    let mut content = fs::read_to_string(&path).unwrap_or_default();
-    for scheme in &registration.schemes {
-        let scheme = sanitize_scheme(scheme);
-        if !scheme.is_empty() {
-            content = set_mime_default(&content, &scheme, &desktop_id);
-        }
+    registration.validate().map_err(io::Error::other)?;
+    if registration.schemes.is_empty() {
+        return Ok(());
     }
-    write_file(path, &content)
+    let desktop_id = format!("{}.sabine-url.desktop", registration.id);
+    let config = config_home()?;
+    let _lock = sabine_runtime::FileLock::acquire(
+        &config.join("sabine/mimeapps.lock"),
+        std::time::Duration::from_secs(5),
+        |_| {},
+    )?;
+    let executable = std::env::current_exe()?;
+    let executable = executable
+        .to_str()
+        .ok_or_else(|| io::Error::other("URL handler executable must have a UTF-8 path"))?;
+    let schemes = registration
+        .schemes
+        .iter()
+        .map(|scheme| scheme.to_ascii_lowercase())
+        .collect::<BTreeSet<_>>();
+    let mime_types = schemes
+        .iter()
+        .map(|scheme| format!("x-scheme-handler/{scheme};"))
+        .collect::<String>();
+    let desktop = format!(
+        "[Desktop Entry]\nType=Application\nName={}\nExec={} %U\nTerminal=false\nNoDisplay=true\nMimeType={mime_types}\n",
+        registration.id,
+        desktop_exec(executable)
+    );
+    let desktop_path = data_home()?.join("applications").join(&desktop_id);
+    write_file(desktop_path.with_extension("desktop.tmp"), &desktop)?;
+    fs::rename(desktop_path.with_extension("desktop.tmp"), &desktop_path)?;
+    let path = config.join("mimeapps.list");
+    let mut content = match fs::read_to_string(&path) {
+        Ok(content) => content,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => String::new(),
+        Err(error) => return Err(error),
+    };
+    for scheme in schemes {
+        content = set_mime_default(&content, &scheme, &desktop_id);
+    }
+    write_file(path.with_extension("list.sabine-tmp"), &content)?;
+    fs::rename(path.with_extension("list.sabine-tmp"), path)
+}
+
+fn desktop_exec(value: &str) -> String {
+    let escaped = value
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('`', "\\`")
+        .replace('$', "\\$")
+        .replace('%', "%%");
+    format!("\"{}\"", escaped.replace('\\', "\\\\"))
 }
 
 pub(super) fn register_native_messaging_host(host: &NativeMessagingHost) -> io::Result<()> {
