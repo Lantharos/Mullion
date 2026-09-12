@@ -102,6 +102,13 @@ jobs:
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
         run: sabine bundle . --target "${{ matrix.target }}" --release
+      - name: Check out matching Windows validation tools
+        if: runner.os == 'Windows'
+        uses: actions/checkout@v6
+        with:
+          repository: Lantharos/Sabine
+          ref: ${{ inputs.sabine_version }}
+          path: .sabine-release
       - name: Verify installed Windows application
         if: runner.os == 'Windows'
         shell: pwsh
@@ -188,7 +195,9 @@ jobs:
             if ($null -eq $daemon) {
               throw "Sabine $expectedSabineVersion did not finish clean first-run setup with a live daemon"
             }
-            Start-Sleep -Seconds 3
+            . ./.sabine-release/scripts/windows-browser-check.ps1
+            Test-SabineBrowser
+            if ($app.HasExited) { throw "Installed application exited with code $($app.ExitCode)" }
             if ($null -eq (Get-Process -Id $daemon.Id -ErrorAction SilentlyContinue)) {
               throw "Sabine daemon exited after first-run setup"
             }

@@ -142,6 +142,7 @@ jobs:
         shell: pwsh
         run: |
           . ./scripts/windows-package-check.ps1
+          . ./scripts/windows-browser-check.ps1
           $msi = @(Get-ChildItem dist/artifacts -Filter *.msi -File)
           $stagedExe = @(Get-ChildItem dist/msi -Filter release-probe.exe -File -Recurse)
           if ($msi.Count -ne 1 -or $stagedExe.Count -ne 1) {
@@ -192,6 +193,7 @@ jobs:
             if ($app.HasExited) {
               throw "installed application exited during launch with code $($app.ExitCode)"
             }
+            Test-SabineBrowser
             Stop-Process -Id $app.Id -Force
           } finally {
             $uninstall = Start-Process msiexec.exe -ArgumentList @('/x', $msi[0].FullName, '/qn', '/norestart', '/l*v', $log) -PassThru
@@ -224,6 +226,7 @@ jobs:
         shell: pwsh
         run: |
           . ./scripts/windows-package-check.ps1
+          . ./scripts/windows-browser-check.ps1
           $setup = Get-ChildItem dist/artifacts -Filter *.exe -File | Select-Object -First 1
           $appId = 'dev.sabine.release-probe'
           $appDir = Join-Path $env:LOCALAPPDATA "Programs/$appId"
@@ -266,6 +269,7 @@ jobs:
             $app = Start-Process (Join-Path $appDir 'release-probe.exe') -PassThru
             Start-Sleep -Seconds 8
             if ($app.HasExited) { throw "Installed application exited with code $($app.ExitCode)" }
+            Test-SabineBrowser
           } finally {
             if ($null -ne $app -and -not $app.HasExited) { Stop-Process -Id $app.Id -Force }
             $uninstaller = Join-Path $appDir 'Uninstall.exe'

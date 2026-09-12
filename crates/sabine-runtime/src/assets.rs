@@ -1,7 +1,7 @@
 use std::{io, path::Path};
 
 pub fn prepare_runtime_assets(runtime_dir: &Path) -> io::Result<()> {
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", windows))]
     {
         let target = runtime_dir.join("Release/icudtl.dat");
         if !target.is_file() {
