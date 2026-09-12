@@ -5,8 +5,11 @@ use sabine_runtime::{
     remove_user_runtime_version, resolve_runtime, update_user_runtime_with_progress,
 };
 
+mod sandbox;
+
 pub enum RuntimeCommand {
     Prepare,
+    SandboxProfile,
     List { json: bool },
     Install,
     Remove { version: Option<String> },
@@ -16,6 +19,16 @@ pub enum RuntimeCommand {
 
 pub fn run_runtime(command: RuntimeCommand) -> ExitCode {
     match command {
+        RuntimeCommand::SandboxProfile => match sandbox::profile() {
+            Ok(profile) => {
+                print!("{profile}");
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("{error}");
+                ExitCode::from(1)
+            }
+        },
         RuntimeCommand::Prepare => match ensure_runtime_ready() {
             Ok(host) => {
                 println!("{}", host.display());

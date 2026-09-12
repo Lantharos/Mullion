@@ -134,6 +134,7 @@ enum Command {
 #[derive(Debug, Subcommand)]
 enum RuntimeSubcommand {
     Prepare,
+    SandboxProfile,
     List {
         #[arg(long)]
         json: bool,
@@ -176,6 +177,7 @@ fn main() -> ExitCode {
         },
         Command::Runtime { command } => runtime::run_runtime(match command {
             RuntimeSubcommand::Prepare => RuntimeCommand::Prepare,
+            RuntimeSubcommand::SandboxProfile => RuntimeCommand::SandboxProfile,
             RuntimeSubcommand::List { json } => RuntimeCommand::List { json },
             RuntimeSubcommand::Install => RuntimeCommand::Install,
             RuntimeSubcommand::Remove { version } => RuntimeCommand::Remove { version },

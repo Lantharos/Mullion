@@ -62,9 +62,6 @@ int RunSabineHost(CefMainArgs main_args, int argc, char* argv[], void* sandbox_i
 #endif
 
   CefSettings settings;
-#if defined(OS_LINUX)
-  settings.no_sandbox = true;
-#endif
   settings.windowless_rendering_enabled = true;
 
   const std::string resources_dir_path =

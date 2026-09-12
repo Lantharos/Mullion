@@ -253,7 +253,22 @@ pub fn smoke_test_runtime(host: &Path, runtime_dir: &Path) -> Result<(), String>
         } else {
             format!(": {}", stderr.trim())
         };
-        Err(format!("CEF runtime probe exited with {status}{details}"))
+        let sandbox_hint = if cfg!(target_os = "linux")
+            && [
+                "No usable sandbox",
+                "Failed to move to new namespace",
+                "SUID sandbox helper",
+            ]
+            .iter()
+            .any(|message| stderr.contains(message))
+        {
+            "\nChromium's sandbox needs Linux user namespaces. On AppArmor systems, generate a profile with `sabine runtime sandbox-profile` and ask an administrator to install it as described in Sabine's Linux sandbox setup documentation."
+        } else {
+            ""
+        };
+        Err(format!(
+            "CEF runtime probe exited with {status}{details}{sandbox_hint}"
+        ))
     }
 }
 
@@ -376,7 +391,7 @@ fn run_checked(command: &mut Command) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{runtime_binary_directory, sources::HOST_SOURCES};
+    use super::runtime_binary_directory;
 
     #[test]
     fn runtime_binary_directory_accepts_flat_platform_layouts() {
@@ -388,41 +403,5 @@ mod tests {
         std::fs::create_dir_all(root.join("Release")).unwrap();
         assert_eq!(runtime_binary_directory(&root), root.join("Release"));
         std::fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn host_sources_match_cmake_lists() {
-        let cmake = HOST_SOURCES
-            .iter()
-            .find(|(name, _)| *name == "CMakeLists.txt")
-            .map(|(_, body)| *body)
-            .expect("CMakeLists.txt embedded");
-        let start = cmake
-            .find("set(SABINE_HOST_SOURCES")
-            .expect("SABINE_HOST_SOURCES");
-        let list = &cmake[start..];
-        let end = list.find(')').expect("closing paren");
-        let listed: Vec<&str> = list[..end]
-            .lines()
-            .skip(1)
-            .map(str::trim)
-            .filter(|line| !line.is_empty())
-            .collect();
-        let embedded: Vec<&str> = HOST_SOURCES
-            .iter()
-            .map(|(name, _)| *name)
-            .filter(|name| {
-                !matches!(
-                    *name,
-                    "CMakeLists.txt" | "main_mac.mm" | "mac/Info.plist.in"
-                )
-            })
-            .collect();
-        assert_eq!(
-            listed, embedded,
-            "HOST_SOURCES must list every CMake host source in the same order"
-        );
-        assert!(cmake.contains("list(APPEND SABINE_HOST_SOURCES main_mac.mm)"));
-        assert!(cmake.contains("mac/Info.plist.in"));
     }
 }

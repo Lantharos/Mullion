@@ -25,8 +25,26 @@ failure stops the helper. The shared host bundle stays unchanged, including its 
 Windows runs CEF’s GUI bootstrap executable with the Sabine client DLL and matching
 `chrome_elf.dll`. The installer keeps these files together and grants restricted application processes read/execute access to the host files
 and CEF runtime using Windows ACLs. Existing permissions are inspected before updating them; no
-console process is needed. Linux namespace setup is still pending, and Linux currently runs with
-the Chromium process sandbox disabled.
+console process is needed. Linux uses Chromium’s namespace and seccomp sandbox. Sabine does not
+disable it when host policy prevents namespace creation.
+
+Ubuntu and other distributions can require an AppArmor exception for locally installed Chromium
+hosts. Generate the profile as the user who runs Sabine, then have an administrator install it:
+
+```sh
+sabine runtime sandbox-profile > sabine-apparmor
+sudo install -m 644 sabine-apparmor /etc/apparmor.d/sabine-$USER
+sudo apparmor_parser -r /etc/apparmor.d/sabine-$USER
+sabine runtime doctor
+rm sabine-apparmor
+```
+
+The profile permits user namespaces for hosts under that user’s Sabine data directory and the
+selected external host, if any. It covers shared runtime updates without changing global AppArmor
+policy. An administrator should review the generated paths: anyone able to replace an executable
+at those paths can also use this namespace permission. If the kernel disables user namespaces
+entirely, an administrator must enable them or provide Chromium’s trusted, root-owned setuid
+helper through `CHROME_DEVEL_SANDBOX`. Running the application as root is unsupported.
 
 ## Release and update model
 

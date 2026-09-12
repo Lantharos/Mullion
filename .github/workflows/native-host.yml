@@ -38,6 +38,12 @@ jobs:
             throw "Native host was not found: $hostPath"
           }
           "SABINE_HOST_PATH=$hostPath" >> $env:GITHUB_ENV
+      - name: Permit the Linux host sandbox under AppArmor
+        if: runner.os == 'Linux'
+        run: |
+          target/debug/sabine runtime sandbox-profile > sabine-apparmor
+          sudo install -m 644 sabine-apparmor /etc/apparmor.d/sabine-ci
+          sudo apparmor_parser -r /etc/apparmor.d/sabine-ci
       - name: Sign and protect the macOS host bundle
         if: runner.os == 'macOS'
         shell: pwsh
