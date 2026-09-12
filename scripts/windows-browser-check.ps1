@@ -30,11 +30,11 @@ function Wait-SabineAppFrame([Diagnostics.Process] $Application, [string] $LogPa
     throw "Installed app did not present its Chromium frame: $diagnostics"
 }
 
-function Test-SabineBrowser {
+function Test-SabineBrowser([string] $RuntimeDirectory = (Join-Path $env:LOCALAPPDATA 'Sabine/runtimes/cef')) {
     $sabineData = Join-Path $env:LOCALAPPDATA 'Sabine'
     $current = Get-Content (Join-Path $sabineData 'bin/current.json') -Raw | ConvertFrom-Json
     $hostPath = Join-Path $sabineData "bin/versions/$($current.active)/sabine-host.exe"
-    $libraries = @(Get-ChildItem (Join-Path $sabineData 'runtimes/cef') -Filter libcef.dll -File -Recurse)
+    $libraries = @(Get-ChildItem $RuntimeDirectory -Filter libcef.dll -File -Recurse)
     if ($libraries.Count -ne 1) { throw 'Expected one installed Chromium runtime' }
     $binaryDirectory = $libraries[0].Directory.FullName
     $resources = Join-Path (Split-Path $binaryDirectory) 'Resources'

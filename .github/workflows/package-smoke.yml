@@ -193,7 +193,7 @@ jobs:
             $appLog = Join-Path $env:RUNNER_TEMP 'sabine-msi-app.log'
             $app = Start-Process $installedExe.FullName -RedirectStandardError $appLog -PassThru
             Wait-SabineAppFrame $app $appLog
-            Test-SabineBrowser
+            Test-SabineBrowser (Join-Path $appDir 'resources/runtimes/cef')
           } finally {
             if ($null -ne $app -and -not $app.HasExited) { $app.Kill($true); $app.WaitForExit() }
             $uninstall = Start-Process msiexec.exe -ArgumentList @('/x', $msi[0].FullName, '/qn', '/norestart', '/l*v', $log) -PassThru
@@ -270,7 +270,7 @@ jobs:
             $appLog = Join-Path $env:RUNNER_TEMP 'sabine-exe-app.log'
             $app = Start-Process (Join-Path $appDir 'release-probe.exe') -RedirectStandardError $appLog -PassThru
             Wait-SabineAppFrame $app $appLog
-            Test-SabineBrowser
+            Test-SabineBrowser (Join-Path $appDir 'resources/runtimes/cef')
           } finally {
             if ($null -ne $app -and -not $app.HasExited) { $app.Kill($true); $app.WaitForExit() }
             $uninstaller = Join-Path $appDir 'Uninstall.exe'
