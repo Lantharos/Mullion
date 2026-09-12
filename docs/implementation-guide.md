@@ -2,6 +2,13 @@
 
 This document describes the current architecture and the boundaries contributors should preserve.
 
+## Generated applications
+
+`sabine new` creates a Vite app with TypeScript checking in `bun run build` and a separate
+`bun run check`. Production asset URLs are relative so the same output loads from a packaged
+local file. Rust and JavaScript dependencies reference the CLI’s Sabine release tag; generated
+projects do not depend on a checkout on the machine that built the CLI.
+
 ## Release and update model
 
 Sabine publishes the CLI, service, daemon, and prebuilt CEF host as one `vMAJOR.BUILD` release train.

@@ -107,17 +107,10 @@ fn is_valid_name(name: &str) -> bool {
 }
 
 pub(crate) fn cargo_toml(name: &str) -> String {
-    let sabine_dep = sabine_path()
-        .map(|path| {
-            let path = path.display().to_string().replace('\\', "\\\\");
-            format!("{{ path = \"{path}\" }}")
-        })
-        .unwrap_or_else(|| {
-            format!(
-                "{{ git = \"https://github.com/Lantharos/Sabine\", tag = \"v{}\", package = \"sabine\" }}",
-                sabine_service::SABINE_VERSION
-            )
-        });
+    let sabine_dep = format!(
+        "{{ git = \"https://github.com/Lantharos/Sabine\", tag = \"v{}\", package = \"sabine\" }}",
+        sabine_service::SABINE_VERSION
+    );
     format!(
         r#"[package]
 name = "{name}"
@@ -132,11 +125,4 @@ serde_json = "1"
 [workspace]
 "#
     )
-}
-
-fn sabine_path() -> Option<PathBuf> {
-    let cli_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let root = cli_dir.parent()?.parent()?;
-    let path = root.join("crates/sabine");
-    path.exists().then_some(path)
 }
