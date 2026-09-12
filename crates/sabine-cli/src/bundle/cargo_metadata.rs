@@ -41,9 +41,9 @@ impl CargoPackage {
         Ok(Self { package, workspace })
     }
 
-    pub fn string(&self, field: &str) -> Result<String, String> {
+    fn value(&self, field: &str) -> Option<&toml::Value> {
         let value = self.package.get(field);
-        let value = if value
+        if value
             .and_then(|value| value.get("workspace"))
             .and_then(toml::Value::as_bool)
             == Some(true)
@@ -51,8 +51,24 @@ impl CargoPackage {
             self.workspace.get(field)
         } else {
             value
-        };
-        value
+        }
+    }
+
+    pub fn strings(&self, field: &str) -> Vec<String> {
+        self.value(field)
+            .and_then(toml::Value::as_array)
+            .map(|values| {
+                values
+                    .iter()
+                    .filter_map(toml::Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub fn string(&self, field: &str) -> Result<String, String> {
+        self.value(field)
             .and_then(toml::Value::as_str)
             .map(str::to_owned)
             .ok_or_else(|| format!("missing Cargo package {field}"))

@@ -1,5 +1,6 @@
 mod cargo_metadata;
 mod config;
+mod linux_package;
 mod metadata;
 mod package;
 mod stage;

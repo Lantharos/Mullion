@@ -447,6 +447,17 @@ Linux packages keep each application, its resources, and any offline runtime/ser
 `/usr/lib/sabine/<app-id>`. A relative symlink in `/usr/bin` launches the app. Runtime and manifest
 discovery follow the executable into its private directory, including in relocated portable bundles
 and AppImages. Separate applications do not claim shared offline helper binaries or runtime files.
+Debian and RPM packages derive their architecture from the app's ELF binary. Build Debian packages
+on the target Debian/Ubuntu environment with `dpkg-dev`: `dpkg-shlibdeps` determines linked-library
+versions, supplemented by Chromium's desktop dependencies. RPM also declares the desktop libraries
+needed by downloaded runtimes and retains automatic ELF dependency generation.
+
+`[app]` accepts `publisher`, `maintainer`, and `license`. Publisher and maintainer can come from Cargo
+`authors`, including inherited workspace authors; license can come from Cargo `license`. Debian
+packages require a maintainer in `Name <email>` form. RPM packages require a license identifier.
+These values describe your application; Sabine does not insert its own publisher or a placeholder
+email address. Prerelease SemVer versions use `~` in Debian/RPM metadata so they sort before the
+corresponding stable version.
 
 Windows builds statically link the Microsoft C runtime and select the GUI subsystem. MSI output is
 explicitly x64 and installs under the current user profile. Its wizard prepares the shared runtime,

@@ -126,49 +126,6 @@ pub(super) fn windows_manifest(app: &BundleApp) -> String {
     )
 }
 
-pub(super) fn deb_control(app: &BundleApp, installed_size_kb: u64) -> String {
-    format!(
-        "Package: {}\nVersion: {}\nSection: utils\nPriority: optional\nArchitecture: amd64\nMaintainer: Sabine <noreply@example.invalid>\nInstalled-Size: {}\nDepends: libc6\nDescription: {}\n",
-        debian_name(&app.id),
-        app.version,
-        installed_size_kb.max(1),
-        app.name
-    )
-}
-
-pub(super) fn rpm_spec(app: &BundleApp, executable: &str) -> String {
-    format!(
-        r#"Name: {name}
-Version: {version}
-Release: 1%{{?dist}}
-Summary: {summary}
-License: unknown
-BuildArch: x86_64
-
-%description
-{summary}
-
-%prep
-
-%build
-
-%install
-mkdir -p "%{{buildroot}}"
-cp -a "%{{sabine_source}}/." "%{{buildroot}}/"
-
-%files
-/usr/bin/{executable}
-/usr/share/applications/{id}.desktop
-/usr/lib/sabine/{id}
-"#,
-        name = rpm_name(&app.id),
-        version = app.version,
-        summary = app.name,
-        executable = executable,
-        id = app.id
-    )
-}
-
 pub(super) fn shell_script(lines: &[&str]) -> String {
     format!("#!/bin/sh\nset -e\n{}\n", lines.join("\n"))
 }
@@ -217,14 +174,6 @@ fn mime_type_line(mime_types: &[String]) -> String {
     } else {
         format!("MimeType={};\n", values.join(";"))
     }
-}
-
-fn debian_name(value: &str) -> String {
-    value.to_ascii_lowercase().replace('_', "-")
-}
-
-fn rpm_name(value: &str) -> String {
-    value.replace(['.', '_'], "-")
 }
 
 fn desktop_exec(value: &str) -> String {

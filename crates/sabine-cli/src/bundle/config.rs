@@ -11,6 +11,9 @@ pub(super) struct BundleApp {
     pub id: String,
     pub name: String,
     pub version: String,
+    pub publisher: String,
+    pub maintainer: Option<String>,
+    pub license: Option<String>,
     pub icon: Option<PathBuf>,
     pub mime_types: Vec<String>,
     pub cargo_manifest: PathBuf,
@@ -79,6 +82,9 @@ struct AppSection {
     id: Option<String>,
     name: Option<String>,
     version: Option<String>,
+    publisher: Option<String>,
+    maintainer: Option<String>,
+    license: Option<String>,
     icon: Option<String>,
     #[serde(default)]
     mime_types: Vec<String>,
@@ -123,6 +129,35 @@ pub(super) fn resolve_app(source: &Path, overrides: ConfigOverrides) -> Result<B
         Some(version) => version,
         None => cargo.string("version")?,
     };
+    let authors = cargo.strings("authors");
+    let maintainer = sabine.app.maintainer.or_else(|| {
+        authors
+            .iter()
+            .find(|author| author.contains('<') && author.contains('@'))
+            .cloned()
+    });
+    let publisher = sabine
+        .app
+        .publisher
+        .or_else(|| {
+            authors
+                .first()
+                .map(|author| author.split('<').next().unwrap_or(author).trim().to_owned())
+        })
+        .unwrap_or_else(|| name.clone());
+    let license = sabine.app.license.or_else(|| cargo.string("license").ok());
+    for (field, value) in [
+        ("publisher", Some(publisher.as_str())),
+        ("maintainer", maintainer.as_deref()),
+        ("license", license.as_deref()),
+    ] {
+        if value.is_some_and(|value| value.trim().is_empty() || value.chars().any(char::is_control))
+        {
+            return Err(format!(
+                "app {field} must be nonempty and contain no control characters"
+            ));
+        }
+    }
     let icon = sabine
         .app
         .icon
@@ -153,6 +188,9 @@ pub(super) fn resolve_app(source: &Path, overrides: ConfigOverrides) -> Result<B
         id,
         name,
         version,
+        publisher,
+        maintainer,
+        license,
         icon,
         mime_types: sabine.app.mime_types,
         cargo_manifest,

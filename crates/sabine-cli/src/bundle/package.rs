@@ -7,7 +7,8 @@ use std::{
 use super::{
     BundleFormat,
     config::BundleApp,
-    metadata::{deb_control, rpm_spec, shell_script},
+    linux_package::{deb_control, deb_dependencies, rpm_spec},
+    metadata::shell_script,
     stage::StagedBundle,
     windows::nsis_script,
 };
@@ -55,7 +56,12 @@ fn package_deb(
     fs::create_dir_all(&debian).map_err(|error| error.to_string())?;
     fs::write(
         debian.join("control"),
-        deb_control(app, dir_size_kb(&staged.app_dir)?),
+        deb_control(
+            app,
+            &staged.binary,
+            dir_size_kb(&staged.app_dir)?,
+            &deb_dependencies(staged)?,
+        )?,
     )
     .map_err(|error| error.to_string())?;
     let artifact = artifact_path(app, staged, BundleFormat::Deb, "deb");
@@ -92,7 +98,8 @@ fn package_rpm(
     result: &mut PackageResult,
 ) -> Result<(), String> {
     let spec = staged.root.join(format!("{}.spec", app.id));
-    fs::write(&spec, rpm_spec(app, &staged.executable)).map_err(|error| error.to_string())?;
+    fs::write(&spec, rpm_spec(app, &staged.executable, &staged.binary)?)
+        .map_err(|error| error.to_string())?;
     let artifact = artifact_path(app, staged, BundleFormat::Rpm, "rpm");
     if command_exists("rpmbuild") {
         let rpm_dir = staged.root.join("rpms");
@@ -111,6 +118,11 @@ fn package_rpm(
             .arg("--define")
             .arg(format!("_rpmdir {}", rpm_dir.display()))
             .arg("--define")
+            .arg(format!(
+                "_topdir {}",
+                staged.root.join("rpmbuild").display()
+            ))
+            .arg("--define")
             .arg(format!("sabine_source {}", source_dir.display())))?;
         let built = find_file_with_extension(&rpm_dir, "rpm")
             .ok_or_else(|| "rpmbuild completed without producing an RPM".to_string())?;
@@ -121,10 +133,14 @@ fn package_rpm(
         write_script(
             &staged.root.join("build-rpm.sh"),
             &shell_script(&[&format!(
-                "rpmbuild -bb {} --buildroot {} --define {}",
+                "rpmbuild -bb {} --buildroot {} --define {} --define {}",
                 shell_quote(&spec.display().to_string()),
                 shell_quote(&staged.root.join("rpm-buildroot").display().to_string()),
-                shell_quote(&format!("sabine_source {}", staged.app_dir.display()))
+                shell_quote(&format!("sabine_source {}", staged.app_dir.display())),
+                shell_quote(&format!(
+                    "_topdir {}",
+                    staged.root.join("rpmbuild").display()
+                ))
             )]),
         )?;
         result
@@ -157,9 +173,11 @@ fn package_appimage(
     result: &mut PackageResult,
 ) -> Result<(), String> {
     let artifact = artifact_path(app, staged, BundleFormat::AppImage, "AppImage");
+    let (_, architecture) = super::linux_package::architecture(&staged.binary)?;
     if command_exists("appimagetool") {
         ensure_parent(&artifact)?;
         run(Command::new("appimagetool")
+            .env("ARCH", architecture)
             .arg(&staged.app_dir)
             .arg(&artifact))?;
         result.artifacts.push(artifact);
@@ -169,7 +187,7 @@ fn package_appimage(
             &shell_script(&[
                 &mkdir_parent_line(&artifact),
                 &format!(
-                    "appimagetool {} {}",
+                    "ARCH={architecture} appimagetool {} {}",
                     shell_quote(&staged.app_dir.display().to_string()),
                     shell_quote(&artifact.display().to_string())
                 ),

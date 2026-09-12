@@ -31,7 +31,7 @@ pub(super) fn wix_source(
     Ok(format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
-    <Package Name="{}" Manufacturer="Lantharos" Version="{}" UpgradeCode="{}" Scope="perUser">
+    <Package Name="{}" Manufacturer="{}" Version="{}" UpgradeCode="{}" Scope="perUser">
       <MediaTemplate EmbedCab="yes"/>
       <MajorUpgrade Schedule="afterInstallInitialize" DowngradeErrorMessage="A newer version of this application is already installed."/>
     <StandardDirectory Id="LocalAppDataFolder">
@@ -62,6 +62,7 @@ pub(super) fn wix_source(
 </Wix>
 "#,
         xml(&app.name),
+        xml(&app.publisher),
         xml(&version),
         upgrade_code,
         xml(&app.id),
