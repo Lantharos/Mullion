@@ -107,7 +107,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: Lantharos/Sabine
-          ref: ab43162a62cbfbef83c36b2a9596e3747bd339fa
+          ref: e51d58808ad6db0863fc83bd1149aeff099f4fb8
           path: .sabine-release
       - name: Verify installed Windows application
         if: runner.os == 'Windows'

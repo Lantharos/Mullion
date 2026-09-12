@@ -300,6 +300,7 @@ jobs:
             ${{ runner.temp }}/sabine-exe-*.log
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v7
+        if: always()
         with:
           name: package-${{ matrix.update_target }}
           path: |
