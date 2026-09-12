@@ -2,6 +2,7 @@ use std::{
     collections::hash_map::DefaultHasher,
     fs,
     hash::{Hash, Hasher},
+    io::Read,
     os::unix::fs::{PermissionsExt, symlink},
     path::{Path, PathBuf},
     process::Command,
@@ -64,18 +65,14 @@ pub(super) fn prepare(host: &Path, runtime: &Path) -> Result<PathBuf, String> {
     }
     let staged_bundle = staging.join("sabine-host.app");
     let result = (|| {
-        copy_tree(bundle, &staged_bundle, false).map_err(|error| error.to_string())?;
+        copy_tree(bundle, &staged_bundle).map_err(|error| error.to_string())?;
         copy_tree(
             &framework,
             &staged_bundle.join("Contents/Frameworks/Chromium Embedded Framework.framework"),
-            true,
         )
         .map_err(|error| error.to_string())?;
-        crate::run_checked(
-            Command::new("/usr/bin/codesign")
-                .args(["--force", "--sign", "-", "--timestamp=none"])
-                .arg(&staged_bundle),
-        )?;
+        sign_tree(&staged_bundle)
+            .map_err(|error| format!("Could not sign the Chromium launch bundle: {error}"))?;
         crate::run_checked(
             Command::new("/usr/bin/codesign")
                 .args(["--verify", "--deep", "--strict"])
@@ -92,7 +89,7 @@ pub(super) fn prepare(host: &Path, runtime: &Path) -> Result<PathBuf, String> {
     result
 }
 
-fn copy_tree(source: &Path, destination: &Path, shared: bool) -> std::io::Result<()> {
+fn copy_tree(source: &Path, destination: &Path) -> std::io::Result<()> {
     fs::create_dir_all(destination)?;
     for entry in fs::read_dir(source)? {
         let entry = entry?;
@@ -102,19 +99,7 @@ fn copy_tree(source: &Path, destination: &Path, shared: bool) -> std::io::Result
         if kind.is_symlink() {
             symlink(fs::read_link(&from)?, to)?;
         } else if kind.is_dir() {
-            copy_tree(&from, &to, shared)?;
-        } else if shared {
-            if let Err(error) = fs::hard_link(&from, &to) {
-                if !matches!(
-                    error.kind(),
-                    std::io::ErrorKind::CrossesDevices
-                        | std::io::ErrorKind::PermissionDenied
-                        | std::io::ErrorKind::Unsupported
-                ) {
-                    return Err(error);
-                }
-                fs::copy(from, to)?;
-            }
+            copy_tree(&from, &to)?;
         } else {
             fs::copy(&from, &to)?;
             let permissions = fs::metadata(&to)?.permissions().mode() | 0o200;
@@ -122,4 +107,48 @@ fn copy_tree(source: &Path, destination: &Path, shared: bool) -> std::io::Result
         }
     }
     Ok(())
+}
+
+fn sign_tree(path: &Path) -> Result<(), String> {
+    for entry in fs::read_dir(path).map_err(|error| error.to_string())? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let kind = entry.file_type().map_err(|error| error.to_string())?;
+        if kind.is_dir() {
+            sign_tree(&entry.path())?;
+        } else if kind.is_file() {
+            let mut magic = [0; 4];
+            let count = fs::File::open(entry.path())
+                .and_then(|mut file| file.read(&mut magic))
+                .map_err(|error| error.to_string())?;
+            if count == 4
+                && matches!(
+                    u32::from_le_bytes(magic),
+                    0xfeedfacf | 0xbebafeca | 0xbfbafeca
+                )
+            {
+                sign(&entry.path())?;
+            }
+        }
+    }
+    if path
+        .extension()
+        .is_some_and(|extension| extension == "app" || extension == "framework")
+    {
+        sign(path)?;
+    }
+    Ok(())
+}
+
+fn sign(path: &Path) -> Result<(), String> {
+    crate::run_checked(
+        Command::new("/usr/bin/codesign")
+            .args([
+                "--force",
+                "--sign",
+                "-",
+                "--timestamp=none",
+                "--preserve-metadata=entitlements,flags,runtime",
+            ])
+            .arg(path),
+    )
 }

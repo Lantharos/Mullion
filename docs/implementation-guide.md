@@ -513,8 +513,8 @@ console so only the native bootstrap progress window is visible.
 
 On macOS, the first launch assembles a private application bundle for the selected host and runtime
 under the user's Sabine data directory. Chromium's sandbox requires the framework inside that bundle.
-Framework files use hard links where supported; other volumes copy them once. The launch bundle
-receives an ad-hoc signature. The distributed host and framework remain unchanged, including their
+APFS copy-on-write clones share unchanged file contents; other volumes copy them once. Nested
+libraries and bundles receive ad-hoc signatures from the inside out. The distributed host and framework remain unchanged, including their
 signatures, and the host download does not duplicate CEF. Removing an unused managed runtime also
 removes its launch bundles. Native CI protects the original host bundle and checks its signature
 after Chromium starts.
