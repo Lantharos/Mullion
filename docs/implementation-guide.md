@@ -592,7 +592,8 @@ supports repair, and rolls back app registration alongside packaged files on fai
 removes the app registration and preserves the shared Sabine system. MSI builds require WiX 7 with
 the UI and Util extensions. Local build machines accept the [WiX 7 EULA](https://docs.firegiant.com/wix/osmf/)
 with `wix eula accept wix7`; reusable workflow callers set `accept_wix_eula: true` after reviewing
-the terms. The configured icon appears in the Start menu shortcut, and the release
+the terms. Applications that require a newer compiler set `rust_toolchain` (the default is `1.90`).
+The configured icon appears in the Start menu shortcut, and the release
 workflow installs and launches the package before publication. Raster and SVG icons are decoded, rendered, and resized in process without external
 image tools. The SVG is rendered once, then reused for all native icon sizes. Font discovery
 runs only when needed; Linux uses Fontconfig for the configured generic font families.

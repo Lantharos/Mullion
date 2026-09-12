@@ -7,6 +7,11 @@ on:
         description: Exact Sabine tag used to build the app
         required: true
         type: string
+      rust_toolchain:
+        description: Rust toolchain required by the application (Sabine requires 1.90 or newer)
+        required: false
+        type: string
+        default: "1.90"
       accept_wix_eula:
         description: Accept the WiX 7 EULA for MSI builds (https://docs.firegiant.com/wix/osmf/)
         required: false
@@ -68,8 +73,8 @@ jobs:
           bun-version: latest
       - name: Install web dependencies
         run: bun install --frozen-lockfile
-      - run: rustup toolchain install 1.90 --profile minimal
-      - run: rustup override set 1.90
+      - run: rustup toolchain install "${{ inputs.rust_toolchain }}" --profile minimal
+      - run: rustup override set "${{ inputs.rust_toolchain }}"
       - name: Install Linux packaging dependencies
         if: runner.os == 'Linux'
         run: |
@@ -212,8 +217,8 @@ jobs:
       SABINE_UPDATE_SIGNING_KEY: ${{ secrets.SABINE_UPDATE_SIGNING_KEY }}
     steps:
       - uses: actions/checkout@v6
-      - run: rustup toolchain install 1.90 --profile minimal
-      - run: rustup override set 1.90
+      - run: rustup toolchain install "${{ inputs.rust_toolchain }}" --profile minimal
+      - run: rustup override set "${{ inputs.rust_toolchain }}"
       - name: Install matching Sabine CLI
         run: cargo install --git https://github.com/Lantharos/Sabine --tag "${{ inputs.sabine_version }}" sabine-cli
       - uses: actions/download-artifact@v8
