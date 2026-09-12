@@ -219,12 +219,15 @@ impl SabineService {
         if !path.is_file() {
             return Ok(None);
         }
-        serde_json::from_slice(&std::fs::read(&path)?)
-            .map(Some)
-            .map_err(|error| ServiceError::Decode {
-                path,
-                source: error,
-            })
+        let pending: PendingAppUpdate =
+            serde_json::from_slice(&std::fs::read(&path)?).map_err(|error| {
+                ServiceError::Decode {
+                    path,
+                    source: error,
+                }
+            })?;
+        let app = self.app(id)?;
+        Ok(version_is_newer(&pending.version, &app.manifest.version).then_some(pending))
     }
 
     pub fn apply_pending_app_update(

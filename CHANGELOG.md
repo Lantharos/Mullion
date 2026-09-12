@@ -1,5 +1,7 @@
 # Sabine 0.26
 
+- Previously downloaded app updates are only offered or installed while their version is newer
+  than the installed app. Manually installing a newer app makes an older pending update ineligible.
 - Windows prepares ICU data beside the Chromium library before launch, fixing startup crashes
   reporting an invalid ICU data file descriptor.
 - Host protocol checks allow up to 30 seconds for cold starts on slower machines and virtual

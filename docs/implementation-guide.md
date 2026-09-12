@@ -93,7 +93,9 @@ repository or HTTPS manifest endpoint. Sabine's reusable GitHub Actions workflow
 artifacts and emits a signed `sabine-update.json`. The service verifies its configured app public
 key, then validates app id, channel, exact platform/package target, version, artifact URL, and
 SHA-256 before staging it. Each app has its own Actions signing secret; only the public key ships in
-the app.
+the app. Releases must be strictly newer than the installed app to qualify as updates.
+Previously staged packages are checked against the current installed version again before
+an update prompt is shown or an installer is launched, including after a manual upgrade.
 
 Writable managed archives activate side by side in the background. Each app has an OS-owned
 update lock covering staging, application, and deferral. Archives are extracted into a separate
