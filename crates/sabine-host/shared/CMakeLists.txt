@@ -127,7 +127,6 @@ set_target_properties(sabine-host PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE "$
 
 if(OS_MAC)
   set(SABINE_HOST_APP "${SABINE_HOST_OUTPUT_DIR}/sabine-host.app")
-  COPY_MAC_FRAMEWORK("sabine-host" "${CEF_BINARY_DIR}" "${SABINE_HOST_APP}")
 
   set(_sabine_helper_index 0)
   foreach(_suffix_list ${CEF_HELPER_APP_SUFFIXES})

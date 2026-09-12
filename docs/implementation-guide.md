@@ -470,6 +470,11 @@ The released Sabine CLI, service, and daemon also use the static Microsoft runti
 downloads use the in-process HTTP client, and unavoidable helper processes are created without a
 console so only the native bootstrap progress window is visible.
 
+On macOS, the host and its helpers load the selected shared Chromium framework by its explicit
+path. Starting an app does not write a framework symlink into the host bundle, and the host package
+does not duplicate the CEF framework. Native CI signs the host and helpers, makes the bundle read-only,
+initializes Chromium, and verifies that the signature remains intact.
+
 Source installs are development conveniences. They stage assets and a launcher under the Sabine data
 directory, register the app with the service, and create platform launch metadata.
 

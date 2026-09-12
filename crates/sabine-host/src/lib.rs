@@ -141,7 +141,7 @@ pub fn smoke_test_runtime(host: &Path, runtime_dir: &Path) -> Result<(), String>
     let host = host
         .canonicalize()
         .map_err(|error| format!("could not resolve Sabine host {}: {error}", host.display()))?;
-    prepare_host_runtime(&host, runtime_dir)?;
+    sabine_runtime::prepare_runtime_assets(runtime_dir).map_err(|error| error.to_string())?;
     let binary_dir = runtime_binary_directory(runtime_dir);
     let cache_dir = std::env::temp_dir().join(format!(
         "sabine-runtime-probe-{}-{}",
@@ -250,76 +250,6 @@ pub fn runtime_binary_directory(runtime_dir: &Path) -> PathBuf {
     }
 }
 
-pub fn prepare_host_runtime(host: &Path, runtime_dir: &Path) -> Result<(), String> {
-    sabine_runtime::prepare_runtime_assets(runtime_dir).map_err(|error| error.to_string())?;
-    #[cfg(target_os = "macos")]
-    {
-        let framework = [runtime_dir.join("Release"), runtime_dir.to_path_buf()]
-            .into_iter()
-            .map(|root| root.join("Chromium Embedded Framework.framework"))
-            .find(|path| path.is_dir())
-            .ok_or_else(|| {
-                format!(
-                    "CEF runtime at {} has no Chromium framework",
-                    runtime_dir.display()
-                )
-            })?;
-        let app = host
-            .ancestors()
-            .find(|path| path.extension().is_some_and(|extension| extension == "app"))
-            .ok_or_else(|| {
-                format!(
-                    "macOS Sabine host is not inside an app bundle: {}",
-                    host.display()
-                )
-            })?;
-        let destination = app
-            .join("Contents/Frameworks")
-            .join("Chromium Embedded Framework.framework");
-        match std::fs::symlink_metadata(&destination) {
-            Ok(metadata) if metadata.file_type().is_symlink() => {
-                let current = std::fs::read_link(&destination).ok().map(|path| {
-                    if path.is_absolute() {
-                        path
-                    } else {
-                        destination
-                            .parent()
-                            .expect("framework path has a parent")
-                            .join(path)
-                    }
-                });
-                if current.as_deref().and_then(|path| path.canonicalize().ok())
-                    == framework.canonicalize().ok()
-                {
-                    return Ok(());
-                }
-                std::fs::remove_file(&destination).map_err(|error| {
-                    format!("could not replace stale CEF framework link: {error}")
-                })?;
-            }
-            Ok(metadata) if metadata.is_dir() => return Ok(()),
-            Ok(_) => {
-                std::fs::remove_file(&destination).map_err(|error| {
-                    format!("could not replace invalid CEF framework entry: {error}")
-                })?;
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => {
-                return Err(format!("could not inspect Sabine host framework: {error}"));
-            }
-        }
-        let parent = destination.parent().expect("framework path has a parent");
-        std::fs::create_dir_all(parent).map_err(|error| {
-            format!("could not prepare Sabine host framework directory: {error}")
-        })?;
-        std::os::unix::fs::symlink(&framework, &destination)
-            .map_err(|error| format!("could not link Sabine host to the CEF runtime: {error}"))?;
-    }
-    #[cfg(not(target_os = "macos"))]
-    let _ = (host, runtime_dir);
-    Ok(())
-}
-
 struct TemporaryDirectory(PathBuf);
 
 impl Drop for TemporaryDirectory {
@@ -329,11 +259,11 @@ impl Drop for TemporaryDirectory {
 }
 
 fn prebuilt_host_path() -> Option<PathBuf> {
-    if let Some(path) = std::env::var_os("SABINE_HOST_PATH") {
-        let path = PathBuf::from(path);
-        if path.is_file() {
-            return Some(path);
-        }
+    if let Some(path) = std::env::var_os("SABINE_HOST_PATH")
+        && let Ok(path) = PathBuf::from(path).canonicalize()
+        && path.is_file()
+    {
+        return Some(path);
     }
     if let Ok(executable) = std::env::current_exe()
         && let Some(directory) = executable.parent()
@@ -400,7 +330,6 @@ pub fn apply_runtime_resource_args(command: &mut Command, runtime_dir: &Path) {
             .unwrap_or_else(|| runtime_dir.join("Release"));
         let framework = framework_parent.join("Chromium Embedded Framework.framework");
         let resources = framework.join("Resources");
-        let existing = std::env::var("DYLD_FRAMEWORK_PATH").unwrap_or_default();
         command
             .arg(format!(
                 "--sabine-framework-dir-path={}",
@@ -409,15 +338,7 @@ pub fn apply_runtime_resource_args(command: &mut Command, runtime_dir: &Path) {
             .arg(format!(
                 "--sabine-resources-dir-path={}",
                 resources.display()
-            ))
-            .env(
-                "DYLD_FRAMEWORK_PATH",
-                if existing.is_empty() {
-                    framework_parent.display().to_string()
-                } else {
-                    format!("{}:{existing}", framework_parent.display())
-                },
-            );
+            ));
     }
     #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
     let _ = (command, runtime_dir);

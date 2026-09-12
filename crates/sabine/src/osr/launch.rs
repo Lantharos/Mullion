@@ -273,7 +273,7 @@ pub(crate) fn cef_osr_command(
             host_binary.display()
         )
     })?;
-    sabine_host::prepare_host_runtime(&host_binary, runtime_dir)?;
+    sabine_runtime::prepare_runtime_assets(runtime_dir).map_err(|error| error.to_string())?;
     sabine_host::validate_host_protocol(&host_binary, runtime_dir)?;
     let binary_dir = sabine_host::runtime_binary_directory(runtime_dir);
     let profile_key = browser_profile_key(config);

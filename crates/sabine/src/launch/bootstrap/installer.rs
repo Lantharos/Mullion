@@ -55,7 +55,8 @@ fn prepare(config: &SabineWindowConfig) -> Result<(), String> {
         sabine_runtime::resolve_runtime(&config.runtime).map_err(|error| error.to_string())?;
     let host = sabine_host::available_host(runtime.location.path())
         .ok_or("The Sabine native host is missing. Retry setup to repair it.")?;
-    sabine_host::prepare_host_runtime(&host, runtime.location.path())?;
+    sabine_runtime::prepare_runtime_assets(runtime.location.path())
+        .map_err(|error| error.to_string())?;
     sabine_host::validate_host_protocol(&host, runtime.location.path())?;
     SabineService::default()
         .register(manifest)

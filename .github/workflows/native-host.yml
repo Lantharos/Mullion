@@ -38,12 +38,32 @@ jobs:
             throw "Native host was not found: $hostPath"
           }
           "SABINE_HOST_PATH=$hostPath" >> $env:GITHUB_ENV
+      - name: Sign and protect the macOS host bundle
+        if: runner.os == 'macOS'
+        shell: pwsh
+        run: |
+          $bundle = Split-Path (Split-Path (Split-Path $env:SABINE_HOST_PATH))
+          foreach ($helper in Get-ChildItem "$bundle/Contents/Frameworks" -Filter '*.app' -Directory) {
+            & codesign --force --sign - $helper.FullName
+            if ($LASTEXITCODE -ne 0) { throw 'Could not sign the helper bundle' }
+          }
+          & codesign --force --sign - $bundle
+          if ($LASTEXITCODE -ne 0) { throw 'Could not sign the host bundle' }
+          & chmod -R a-w $bundle
+          if ($LASTEXITCODE -ne 0) { throw 'Could not protect the host bundle' }
       - name: Initialize the native Chromium runtime
         shell: pwsh
         run: |
           $suffix = if ($IsWindows) { '.exe' } else { '' }
           & "target/debug/sabine$suffix" runtime doctor --json | Tee-Object -FilePath host-doctor.json
           if ($LASTEXITCODE -ne 0) { throw 'Native CEF initialization failed' }
+      - name: Verify the macOS signature after launch
+        if: runner.os == 'macOS'
+        shell: pwsh
+        run: |
+          $bundle = Split-Path (Split-Path (Split-Path $env:SABINE_HOST_PATH))
+          & codesign --verify --deep --strict $bundle
+          if ($LASTEXITCODE -ne 0) { throw 'Launching changed the signed host bundle' }
       - name: Check Windows console ownership
         if: runner.os == 'Windows'
         run: cargo test --locked -p sabine-runtime process::tests::background_children_do_not_inherit_a_console -- --exact

@@ -30,8 +30,22 @@
 }
 @end
 
+namespace {
+class FrameworkLibrary {
+ public:
+  explicit FrameworkLibrary(const std::string& directory)
+      : loaded_(!directory.empty() && cef_load_library(
+          (directory + "/Chromium Embedded Framework").c_str())) {}
+  ~FrameworkLibrary() { if (loaded_) cef_unload_library(); }
+  bool loaded() const { return loaded_; }
+ private:
+  const bool loaded_;
+};
+}
+
 int main(int argc, char* argv[]) {
   bool subprocess = false;
+  std::string framework;
   for (int index = 1; index < argc; ++index) {
     const std::string argument(argv[index]);
     if (argument == "--sabine-host-protocol") {
@@ -40,13 +54,16 @@ int main(int argc, char* argv[]) {
     }
     if (argument.rfind("--type=", 0) == 0 || argument == "--type") {
       subprocess = true;
-      break;
+    }
+    const std::string prefix = "--sabine-framework-dir-path=";
+    if (argument.rfind(prefix, 0) == 0) {
+      framework = argument.substr(prefix.size());
     }
   }
 
-  CefScopedLibraryLoader library_loader;
-  if (subprocess ? !library_loader.LoadInHelper()
-                 : !library_loader.LoadInMain()) {
+  FrameworkLibrary library(framework);
+  if (!library.loaded()) {
+    std::cerr << "Could not load the Chromium framework at " << framework << std::endl;
     return 1;
   }
 
