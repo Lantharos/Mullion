@@ -101,6 +101,30 @@ await popup.open({ x: 40, y: 80, width: 280, height: 160, html: "<p>Menu</p>" })
 await popup.close();
 ```
 
+## Opening URLs and documents
+
+Declare URL schemes with `app.mime_types = ["x-scheme-handler/my-app"]` in `Sabine.toml`.
+For Linux and Windows, use `.single_instance(SingleInstancePolicy::FocusExisting)` in Rust to
+route later launches to the running app. macOS delivers URLs and documents through its application
+delegate; test with the bundled application.
+
+```js
+import { app, events } from "@lantharos/sabine";
+
+async function openPending() {
+  for (const url of await app.takeOpenUrls()) {
+    await openDocument(url);
+  }
+}
+
+const unsubscribe = events.openUrlsAvailable(openPending);
+await openPending();
+```
+
+`takeOpenUrls()` consumes pending URLs, including those received before the page loaded. Call
+`unsubscribe()` when disposing the listener. URLs remain application input: validate their scheme
+and contents before acting on them.
+
 ## Availability
 
 ```js

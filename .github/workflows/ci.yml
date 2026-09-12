@@ -35,3 +35,6 @@ jobs:
       - run: rustup override set 1.89
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace
+      - name: Open URLs and documents through macOS LaunchServices
+        if: runner.os == 'macOS'
+        run: python3 scripts/macos-url-check.py

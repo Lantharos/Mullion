@@ -73,6 +73,10 @@ export const bridge = {
 };
 
 export const events = {
+  /** @param {() => void} callback */
+  openUrlsAvailable(callback) {
+    return listen("app.openUrlsAvailable", callback);
+  },
   /** @param {(payload: import("./index.d.ts").WindowFileDragEvent) => void} callback */
   fileDrag(callback) {
     return listen("window.fileDrag", callback);
@@ -100,6 +104,13 @@ export const events = {
   /** @param {(payload: import("./index.d.ts").GuestFaviconEvent) => void} callback */
   guestFavicon(callback) {
     return listen("guest.favicon", callback);
+  },
+};
+
+export const app = {
+  /** @returns {Promise<string[]>} */
+  takeOpenUrls() {
+    return invoke("app.takeOpenUrls");
   },
 };
 

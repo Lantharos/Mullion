@@ -213,6 +213,7 @@ impl SingleInstanceActivation {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PlatformEvent {
+    OpenUrls(Vec<String>),
     Tray(TrayActivation),
     GlobalShortcut(GlobalShortcutActivation),
     SingleInstance(SingleInstanceActivation),

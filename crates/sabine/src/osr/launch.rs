@@ -97,6 +97,7 @@ pub(crate) fn launch_process(
         extra_bridge_threads: Vec::new(),
         bridge_emitter: bridge_dispatch.emitter,
         desktop_services: None,
+        open_urls: config.open_urls.clone(),
         desktop_event_thread: None,
         desktop_event_stop: None,
         activity,

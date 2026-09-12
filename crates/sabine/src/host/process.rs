@@ -40,6 +40,7 @@ pub struct SabineProcess {
     pub(crate) extra_bridge_threads: Vec<JoinHandle<()>>,
     pub(crate) bridge_emitter: Option<BridgeEventEmitter>,
     pub(crate) desktop_services: Option<DesktopServiceState>,
+    pub(crate) open_urls: crate::desktop::open_urls::OpenUrls,
     pub(crate) desktop_event_thread: Option<JoinHandle<()>>,
     pub(crate) desktop_event_stop: Option<crossbeam_channel::Sender<()>>,
     pub(crate) activity: sabine_bridge::ActivityRegistry,
@@ -52,6 +53,11 @@ pub struct SabineProcess {
 pub type WindowId = u32;
 
 impl SabineProcess {
+    /// Consumes URLs queued by the initial launch, another instance, or the OS.
+    pub fn take_open_urls(&self) -> Vec<String> {
+        self.open_urls.take()
+    }
+
     pub fn id(&self) -> u32 {
         self.child.id()
     }
@@ -290,18 +296,38 @@ impl SabineProcess {
         self.metrics.snapshot()
     }
 
-    pub(crate) fn start_desktop_event_forwarder(&mut self) {
+    pub(crate) fn start_desktop_event_forwarder(
+        &mut self,
+        registrations: Vec<sabine_platform::DeepLinkRegistration>,
+    ) {
         let (Some(services), Some(emitter)) =
             (self.desktop_services.as_ref(), self.bridge_emitter.clone())
         else {
             return;
         };
         let (stop, stopped) = crossbeam_channel::bounded(1);
+        let open_urls = self.open_urls.clone();
         self.desktop_event_stop = Some(stop);
         self.desktop_event_thread = Some(start_desktop_event_forwarder(
             services,
             stopped,
             move |event| {
+                let opened = match &event {
+                    PlatformEvent::OpenUrls(urls) => open_urls.receive(urls.clone()),
+                    PlatformEvent::SingleInstance(activation) => open_urls.receive_arguments(
+                        activation.arguments.get(1..).unwrap_or_default(),
+                        activation.working_directory.as_deref(),
+                        &registrations,
+                    ),
+                    _ => false,
+                };
+                if opened && !matches!(event, PlatformEvent::OpenUrls(_)) {
+                    let _ = emitter.emit("app.openUrlsAvailable", serde_json::Value::Null);
+                }
+                if matches!(event, PlatformEvent::OpenUrls(_)) {
+                    let _ = emitter.show();
+                    let _ = emitter.focus_window();
+                }
                 if let PlatformEvent::SingleInstance(activation) = &event
                     && activation.policy == SingleInstancePolicy::FocusExisting
                 {

@@ -75,6 +75,17 @@ impl SabineWindow {
             let desktop_services = None;
             metrics.mark("desktop_services.ready");
             self.ensure_default_bridge_handlers();
+            let open_urls = self.config.open_urls.clone();
+            open_urls.receive_arguments(
+                &std::env::args().skip(1).collect::<Vec<_>>(),
+                std::env::current_dir().ok().as_deref(),
+                &self.config.desktop_services.deep_links,
+            );
+            self = self.bridge_handler("app.takeOpenUrls", move |_| {
+                Ok(sabine_bridge::BridgeResponse::json(serde_json::json!(
+                    open_urls.take()
+                )))
+            });
             self.apply_dev_env_overrides();
             self.allow_configured_url_origins();
             let mut url = self.entry_url()?;
@@ -96,7 +107,7 @@ impl SabineWindow {
                 metrics.clone(),
             )?;
             process.desktop_services = desktop_services;
-            process.start_desktop_event_forwarder();
+            process.start_desktop_event_forwarder(self.config.desktop_services.deep_links.clone());
             metrics.mark("launch.ready");
             Ok(process)
         }

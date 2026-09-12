@@ -21,6 +21,7 @@ pub(super) type EventQueue = crossbeam_channel::Sender<PlatformEvent>;
 
 mod helpers;
 mod instance;
+mod open_urls;
 use helpers::*;
 use instance::SingleInstanceGuard;
 
@@ -29,6 +30,7 @@ pub struct DesktopServiceState {
     event_receiver: crossbeam_channel::Receiver<PlatformEvent>,
     _tray: Option<TrayRuntime>,
     _hotkeys: Option<HotkeyRuntime>,
+    open_url_events: Option<open_urls::OpenUrlEvents>,
     pending_tray: Option<TrayIcon>,
     pending_shortcuts: Vec<GlobalShortcutRegistration>,
     _single_instance: Option<SingleInstanceGuard>,
@@ -46,6 +48,15 @@ impl std::fmt::Debug for DesktopServiceState {
 }
 
 impl DesktopServiceState {
+    pub(crate) fn start_url_events(&mut self) -> Result<(), String> {
+        if self.open_url_events.is_none() {
+            self.open_url_events = Some(open_urls::OpenUrlEvents::install(
+                self._event_sender.clone(),
+            )?);
+        }
+        Ok(())
+    }
+
     pub(crate) fn start_native_events(&mut self) -> Result<(), String> {
         if let Some(icon) = self.pending_tray.take() {
             let (tray, actions) = spawn_tray_icon(&icon)?;
@@ -87,6 +98,7 @@ pub fn apply_desktop_services(
         event_receiver,
         _tray: None,
         _hotkeys: None,
+        open_url_events: None,
         pending_tray: tray_icon.cloned(),
         pending_shortcuts: global_shortcuts.to_vec(),
         _single_instance: None,

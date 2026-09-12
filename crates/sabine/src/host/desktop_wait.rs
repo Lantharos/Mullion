@@ -11,6 +11,10 @@ use super::SabineProcess;
 
 pub(super) fn wait(process: &mut SabineProcess) -> io::Result<()> {
     let mut event_loop = EventLoop::new().map_err(io::Error::other)?;
+    #[cfg(target_os = "macos")]
+    if let Some(services) = &mut process.desktop_services {
+        services.start_url_events().map_err(io::Error::other)?;
+    }
     let proxy = event_loop.create_proxy();
     let (sender, receiver) = crossbeam_channel::unbounded();
     let commands = std::mem::replace(&mut process.command_receiver, receiver);

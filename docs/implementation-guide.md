@@ -504,6 +504,12 @@ bundle before signing. A runtime `.deep_link(...)` call checks those declaration
 missing scheme instead of writing an unused registration file. Run the bundled app when testing
 macOS URL handlers.
 
+Initial URL arguments and subsequent single-instance activations enter the same pending queue as
+macOS URL/document events. `SabineProcess::take_open_urls()` and the package's `app.takeOpenUrls()`
+consume that queue. Subscribe to `events.openUrlsAvailable()` before the initial drain, so URLs
+received during page startup are retained. The queue holds up to 128 URLs, each at most 32 KiB;
+excess requests produce a desktop diagnostic. Applications decide how to handle each URL.
+
 ## Bundles and installs
 
 The CLI reads `Sabine.toml`, builds web assets and the selected Rust package, writes a normalized

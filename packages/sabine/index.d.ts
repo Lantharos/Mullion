@@ -197,6 +197,7 @@ export declare const bridge: {
 };
 
 export declare const events: {
+  openUrlsAvailable(callback: () => void): () => void;
   fileDrag(callback: (payload: WindowFileDragEvent) => void): () => void;
   guestNavigated(callback: (payload: GuestNavigatedEvent) => void): () => void;
   guestNewWindow(callback: (payload: GuestNewWindowEvent) => void): () => void;
@@ -204,6 +205,11 @@ export declare const events: {
   guestShortcut(callback: (payload: GuestShortcutEvent) => void): () => void;
   guestWheel(callback: (payload: GuestWheelEvent) => void): () => void;
   guestFavicon(callback: (payload: GuestFaviconEvent) => void): () => void;
+};
+
+export declare const app: {
+  /** Consumes pending URLs from initial launch and subsequent OS activations. */
+  takeOpenUrls(): Promise<string[]>;
 };
 
 export declare const appWindow: SabineWindowApi;

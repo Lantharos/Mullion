@@ -330,6 +330,7 @@ impl sabine_bridge::ActivityEventEmitter for BridgeEventEmitter {
 
 pub(crate) fn platform_event_payload(event: PlatformEvent) -> (&'static str, serde_json::Value) {
     match event {
+        PlatformEvent::OpenUrls(_) => ("app.openUrlsAvailable", serde_json::Value::Null),
         PlatformEvent::Tray(activation) => (
             "tray.activate",
             serde_json::json!({
