@@ -34,6 +34,8 @@ add_subdirectory(${CEF_LIBCEF_DLL_WRAPPER_PATH} libcef_dll_wrapper)
 set(SABINE_HOST_SOURCES
   main.cc
   entry.h
+  runtime/probe.cc
+  runtime/probe.h
   app/app.cc
   app/app.h
   app/bridge.cc

@@ -1,4 +1,5 @@
 #include "app/app.h"
+#include "runtime/probe.h"
 #include "app/bridge.h"
 #include "common/bridge_policy.h"
 
@@ -206,6 +207,7 @@ void SabineApp::OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> command_lin
 void SabineApp::OnContextInitialized() {
   CEF_REQUIRE_UI_THREAD();
   if (runtime_smoke_test_) {
+    StartRuntimeProbe();
     return;
   }
   CreateBrowser(CefCommandLine::GetGlobalCommandLine());

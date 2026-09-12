@@ -1,4 +1,5 @@
 #include "app/app.h"
+#include "runtime/probe.h"
 
 #if defined(OS_WIN) || defined(_WIN32)
 #include <windows.h>
@@ -95,14 +96,10 @@ int RunSabineHost(CefMainArgs main_args, int argc, char* argv[]) {
     return CefGetExitCode();
   }
 
-  if (runtime_smoke_test) {
-    CefShutdown();
-    return 0;
-  }
-
   CefRunMessageLoop();
+  const int result = runtime_smoke_test ? RuntimeProbeResult() : 0;
   CefShutdown();
-  return 0;
+  return result;
 }
 
 #if defined(OS_WIN) || defined(_WIN32)

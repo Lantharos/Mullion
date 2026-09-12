@@ -6,6 +6,11 @@ pub(crate) const HOST_SOURCES: &[(&str, &str)] = &[
     ("CMakeLists.txt", include_str!("../shared/CMakeLists.txt")),
     ("main.cc", include_str!("../shared/main.cc")),
     ("entry.h", include_str!("../shared/entry.h")),
+    (
+        "runtime/probe.cc",
+        include_str!("../shared/runtime/probe.cc"),
+    ),
+    ("runtime/probe.h", include_str!("../shared/runtime/probe.h")),
     ("main_mac.mm", include_str!("../shared/main_mac.mm")),
     (
         "mac/Info.plist.in",

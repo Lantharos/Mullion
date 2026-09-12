@@ -14,7 +14,7 @@ binaries into a versioned directory. The active pointer changes atomically and t
 is retained as the rollback installation until the next successful upgrade. The old binary supervises a single-daemon
 handoff; failed startup restores the previous pointer and daemon, records the failed release, and
 applies an exponential retry delay. A damaged active installation is silently replaced from signed
-release metadata. The host is compiled against CEF Stable API 133, so the runtime service can
+release metadata. The host is compiled against CEF Stable API 15101, so the runtime service can
 independently install newer compatible CEF builds. Apps negotiate Sabine behavior and capabilities
 and never request a Chromium version.
 
@@ -482,10 +482,12 @@ directory, register the app with the service, and create platform launch metadat
 
 The manual `Native CEF host checks` workflow builds the C++ host against the current Minimal CEF
 SDK on Linux, Windows, and Apple Silicon macOS, then runs `runtime doctor`. It does
-not publish a release. This checks native compilation and Chromium initialization; desktop rendering,
-input, multi-window behavior, and GPU/device acceptance require the platform runtime checks too.
-The runtime probe shuts Chromium down normally and captures bounded error details without blocking
-on stderr output.
+not publish a release. This checks native compilation, renderer startup, and an off-screen frame with the expected
+pixels. Desktop composition, input, multi-window behavior, and GPU/device acceptance require
+the platform runtime checks too. The probe fails if Chromium cannot render its page within
+25 seconds, shuts Chromium down normally, and captures bounded error details without blocking
+on stderr output. On macOS, the workflow also verifies that the signed host bundle remains
+unmodified while loading the external shared framework.
 
 After code changes run:
 

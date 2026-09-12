@@ -23,7 +23,7 @@ use build_lock::HostBuildLock;
 use sources::write_host_source;
 use toolchain::apply_cmake_generator;
 
-const RUNTIME_PROBE_VERSION: u32 = 4;
+const RUNTIME_PROBE_VERSION: u32 = 5;
 
 pub fn host_binary_name() -> &'static str {
     if cfg!(target_os = "windows") {
