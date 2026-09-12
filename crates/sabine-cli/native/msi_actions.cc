@@ -85,6 +85,7 @@ std::wstring CommandLine(MSIHANDLE install) {
     throw std::runtime_error("Setup command is missing or too long");
   }
   std::wstring command(length + 1, L'\0');
+  length = static_cast<DWORD>(command.size());
   const UINT read_result = MsiGetPropertyW(install, L"CustomActionData", command.data(), &length);
   if (read_result != ERROR_SUCCESS) {
     throw std::runtime_error("Could not read setup command (MSI error " + std::to_string(read_result) + ")");
