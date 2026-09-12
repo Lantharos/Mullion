@@ -107,7 +107,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: Lantharos/Sabine
-          ref: 306d8536448c46bc09e24e03b2818d6978b896f3
+          ref: ab43162a62cbfbef83c36b2a9596e3747bd339fa
           path: .sabine-release
       - name: Verify installed Windows application
         if: runner.os == 'Windows'
@@ -170,7 +170,9 @@ jobs:
             throw "MSI did not install the application icon"
           }
           try {
-            $app = Start-Process $installedExe.FullName -PassThru
+            $env:SABINE_TRACE = '1'
+            $appLog = Join-Path $env:RUNNER_TEMP 'sabine-msi-app.log'
+            $app = Start-Process $installedExe.FullName -RedirectStandardError $appLog -PassThru
             $statePath = Join-Path $sabineData 'daemon-state.json'
             $deadline = (Get-Date).AddMinutes(15)
             $daemon = $null
@@ -196,17 +198,23 @@ jobs:
               throw "Sabine $expectedSabineVersion did not finish clean first-run setup with a live daemon"
             }
             . ./.sabine-release/scripts/windows-browser-check.ps1
+            Wait-SabineAppFrame $app $appLog
             Test-SabineBrowser
             if ($app.HasExited) { throw "Installed application exited with code $($app.ExitCode)" }
             if ($null -eq (Get-Process -Id $daemon.Id -ErrorAction SilentlyContinue)) {
               throw "Sabine daemon exited after first-run setup"
             }
-            if (-not $app.HasExited) {
-              Stop-Process -Id $app.Id -Force
-            }
           } finally {
+            if ($null -ne $app -and -not $app.HasExited) { $app.Kill($true); $app.WaitForExit() }
             Start-Process msiexec.exe -ArgumentList @('/x', $msi[0].FullName, '/qn', '/norestart') -Wait
           }
+      - name: Preserve Windows startup diagnostics
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-startup-logs
+          path: ${{ runner.temp }}/sabine-msi-*.log
+          if-no-files-found: ignore
       - name: Name release asset
         shell: pwsh
         run: |

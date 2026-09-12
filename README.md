@@ -211,7 +211,8 @@ Windows bundles statically link the Microsoft C runtime. MSI packages are x64 an
 `%LOCALAPPDATA%\Programs\<app-id>`. Their wizard prepares the shared runtime before finishing,
 supports repair, and uses the configured app icon for the Start menu shortcut. MSI failures roll
 back packaged files and app registration; uninstall leaves the shared runtime available to other apps. The release workflow
-installs and launches the MSI before publishing it. Windows bundle targets are linked as GUI apps,
+installs and launches the MSI, verifies the app presents a Chromium frame, and checks that its
+connection remains healthy before publishing it. Windows bundle targets are linked as GUI apps,
 so existing apps do not need source-level linker configuration to avoid a console window.
 Sabine's own service and daemon are also self-contained, and bootstrap tools run without creating
 console windows; the native setup progress window is the only visible first-launch process.
