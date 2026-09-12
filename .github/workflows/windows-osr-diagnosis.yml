@@ -48,7 +48,7 @@ jobs:
             $start.WorkingDirectory = $library.Directory.FullName
             $start.Environment['PATH'] = "$($library.Directory.FullName);$env:PATH"
             $start.Environment['SABINE_OSR_TOKEN'] = 'diagnostic-token'
-            foreach ($argument in @('--sabine-osr', '--sabine-shared-texture', "--sabine-parent-pid=$PID", "--sabine-osr-endpoint=$($listener.LocalEndpoint)", '--sabine-width=960', '--sabine-height=640', '--sabine-scale=1', '--url=data:text/html,<html><body style="background:blue">OSR diagnostic</body></html>', "--root-cache-path=$env:RUNNER_TEMP/profile-$variant", "--sabine-resources-dir-path=$resources", "--sabine-locales-dir-path=$resources/locales", '--enable-logging=stderr', '--v=1')) { $start.ArgumentList.Add($argument) }
+            foreach ($argument in @('--sabine-osr', '--sabine-bridge-policy={}', '--sabine-shared-texture', "--sabine-parent-pid=$PID", "--sabine-osr-endpoint=$($listener.LocalEndpoint)", '--sabine-width=960', '--sabine-height=640', '--sabine-scale=1', '--url=data:text/html,<html><body style="background:blue">OSR diagnostic</body></html>', "--root-cache-path=$env:RUNNER_TEMP/profile-$variant", "--sabine-resources-dir-path=$resources", "--sabine-locales-dir-path=$resources/locales", '--enable-logging=stderr', '--v=1')) { $start.ArgumentList.Add($argument) }
             if ($variant -eq 'd3d11-luid') { $start.ArgumentList.Add('--use-angle=d3d11') }
             if ($variant.StartsWith('warp')) { $start.ArgumentList.Add('--use-angle=d3d11-warp') }
             if ($variant.EndsWith('luid')) { $start.ArgumentList.Add("--use-adapter-luid=$luid") }
