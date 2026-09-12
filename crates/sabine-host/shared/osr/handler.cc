@@ -180,7 +180,21 @@ bool CreateSabineOsrBrowser(CefRefPtr<CefCommandLine> command_line) {
   }
 
 	  CefWindowInfo window_info;
-	  window_info.SetAsWindowless(kNullWindowHandle);
+  CefWindowHandle parent_window = kNullWindowHandle;
+#if defined(OS_WIN)
+  const std::string parent = command_line->GetSwitchValue("sabine-parent-window");
+  if (!parent.empty()) {
+    char* end = nullptr;
+    errno = 0;
+    const unsigned long long value = std::strtoull(parent.c_str(), &end, 10);
+    if (errno || parent.front() == '-' || *end || value > std::numeric_limits<uintptr_t>::max()) {
+      std::cerr << "Sabine OSR: invalid native parent window" << std::endl;
+      return false;
+    }
+    parent_window = reinterpret_cast<CefWindowHandle>(static_cast<uintptr_t>(value));
+  }
+#endif
+  window_info.SetAsWindowless(parent_window);
 	  sabine_osr::ApplySharedTexture(
 	      &window_info, sabine_osr::PreferSharedTexture(command_line));
 	  CefRefPtr<SabineOsrHandler> handler(new SabineOsrHandler(

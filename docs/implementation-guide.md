@@ -398,6 +398,14 @@ trusted when the app replaces it through `guest.navigate`; arbitrary data URLs d
 partition. Popup policy, download policy, visibility, bounds, intercepted shortcuts, and horizontal
 wheel interception are all explicit guest properties.
 
+Main-page downloads open the native Save dialog. Guests require `allowDownloads` and emit
+`guest.download` before the app accepts the transfer with `guest.downloadAction`; the app can
+choose a destination or request the Save dialog. A window retains at most 256 pending or active
+downloads, and terminal events release their entries. The cancellation state is `cancelled`.
+Windows browsers opened with a visible native window use its HWND as the dialog owner. Linux
+and macOS use the system dialog's default ownership; native window parenting across those
+processes is not implemented.
+
 While a guest is focused, matching `interceptedShortcuts` are consumed by the host: keydown emits
 `guest.shortcut` to the primary page and neither keydown nor keyup reaches the guest. With
 `interceptHorizontalWheel`, predominantly horizontal wheel samples emit `guest.wheel` and are not

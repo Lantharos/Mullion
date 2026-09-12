@@ -222,7 +222,7 @@ void SabineOsrHandler::ContinueCreateGuest(
       request.background_color, CefColorSetARGB(0, 0, 0, 0));
 
   CefWindowInfo window_info;
-  window_info.SetAsWindowless(kNullWindowHandle);
+  window_info.SetAsWindowless(browser_ ? browser_->GetHost()->GetWindowHandle() : kNullWindowHandle);
   sabine_osr::ApplySharedTexture(
       &window_info,
       sabine_osr::PreferSharedTexture(CefCommandLine::GetGlobalCommandLine()));

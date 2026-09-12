@@ -241,6 +241,13 @@ impl OsrNativeHost {
                 height,
                 scale,
                 frame_rate: self.active_frame_rate(),
+                parent_window: self.window.as_ref().and_then(|window| {
+                    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+                    match window.window_handle().ok()?.as_raw() {
+                        RawWindowHandle::Win32(handle) => Some(handle.hwnd.get() as u64),
+                        _ => None,
+                    }
+                }),
                 accelerated_paint: self
                     .renderer
                     .as_ref()

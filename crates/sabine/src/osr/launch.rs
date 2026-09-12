@@ -258,6 +258,7 @@ pub(crate) struct CefViewport {
     pub(crate) scale: f64,
     pub(crate) frame_rate: u32,
     pub(crate) accelerated_paint: bool,
+    pub(crate) parent_window: Option<u64>,
 }
 
 pub(crate) fn cef_osr_command(
@@ -298,6 +299,9 @@ pub(crate) fn cef_osr_command(
         .arg(format!("--sabine-parent-pid={}", std::process::id()));
     if viewport.accelerated_paint {
         command.arg("--sabine-shared-texture");
+    }
+    if let Some(parent) = viewport.parent_window {
+        command.arg(format!("--sabine-parent-window={parent}"));
     }
     command.arg(format!("--sabine-osr-token-file={}", token_file.display()));
     command

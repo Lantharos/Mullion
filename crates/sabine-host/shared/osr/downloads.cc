@@ -108,20 +108,23 @@ bool SabineOsrHandler::OnBeforeDownload(
   if (guest && !guest->allow_downloads) {
     return true;
   }
+  if (downloads_.size() >= 256) {
+    std::fprintf(stderr, "Sabine: download canceled because this window already has 256 pending or active downloads\n");
+    return true;
+  }
   const std::string download_id =
       std::to_string(download_item ? download_item->GetId() : 0);
   GuestDownload download;
   download.guest_id = guest ? guest->id : std::string();
   download.filename = suggested_name.ToString();
-  // Guests wait for `sabine.guest.downloadAction`; the primary browser keeps
-  // the default download behaviour it had before guests existed.
   download.before_callback = guest ? callback : nullptr;
   downloads_[download_id] = download;
   EmitPrimaryEvent("guest.download",
                    GuestDownloadJson(download.guest_id, download_id,
                                      download_item, "requested",
                                      download.filename));
-  return guest != nullptr;
+  if (!guest) callback->Continue(CefString(), true);
+  return true;
 }
 
 void SabineOsrHandler::OnDownloadUpdated(
@@ -142,7 +145,7 @@ void SabineOsrHandler::OnDownloadUpdated(
   if (download_item->IsComplete()) {
     state = "completed";
   } else if (download_item->IsCanceled()) {
-    state = "canceled";
+    state = "cancelled";
   } else if (!download_item->IsInProgress()) {
     state = "interrupted";
   }
@@ -154,4 +157,3 @@ void SabineOsrHandler::OnDownloadUpdated(
     downloads_.erase(entry);
   }
 }
-

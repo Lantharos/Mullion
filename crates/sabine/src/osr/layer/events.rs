@@ -531,6 +531,7 @@ impl OsrLayerHost {
             &authentication_token,
             &self.config,
             crate::osr::CefViewport {
+                parent_window: None,
                 width,
                 height,
                 scale,
