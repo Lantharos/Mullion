@@ -86,14 +86,17 @@ if(NOT OS_WINDOWS)
 endif()
 
 if(OS_WINDOWS)
-  add_executable(sabine-host WIN32 ${SABINE_HOST_SOURCES})
+  add_library(sabine-host SHARED ${SABINE_HOST_SOURCES})
+  SET_LIBRARY_TARGET_PROPERTIES(sabine-host)
 elseif(OS_MAC)
   add_executable(sabine-host MACOSX_BUNDLE ${SABINE_HOST_SOURCES})
 else()
   add_executable(sabine-host ${SABINE_HOST_SOURCES})
 endif()
 
-SET_EXECUTABLE_TARGET_PROPERTIES(sabine-host)
+if(NOT OS_WINDOWS)
+  SET_EXECUTABLE_TARGET_PROPERTIES(sabine-host)
+endif()
 target_include_directories(sabine-host PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}"
   "${CEF_ROOT}"
@@ -126,6 +129,12 @@ endif()
 set_target_properties(sabine-host PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${SABINE_HOST_OUTPUT_DIR}")
 set_target_properties(sabine-host PROPERTIES RUNTIME_OUTPUT_DIRECTORY_DEBUG "${SABINE_HOST_OUTPUT_DIR}")
 set_target_properties(sabine-host PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE "${SABINE_HOST_OUTPUT_DIR}")
+
+if(OS_WINDOWS)
+  add_custom_command(TARGET sabine-host POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy "${CEF_BINARY_DIR}/bootstrap.exe" "${SABINE_HOST_OUTPUT_DIR}/sabine-host.exe"
+    VERBATIM)
+endif()
 
 if(OS_MAC)
   set(SABINE_HOST_APP "${SABINE_HOST_OUTPUT_DIR}/sabine-host.app")

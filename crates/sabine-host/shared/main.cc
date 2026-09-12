@@ -3,6 +3,8 @@
 
 #if defined(OS_WIN) || defined(_WIN32)
 #include <windows.h>
+#include "include/cef_sandbox_win.h"
+#include "include/cef_version_info.h"
 #endif
 
 #if defined(CEF_X11)
@@ -34,7 +36,7 @@ int XIOErrorHandlerImpl(Display* display) {
 #if defined(OS_LINUX)
 NO_STACK_PROTECTOR
 #endif
-int RunSabineHost(CefMainArgs main_args, int argc, char* argv[]) {
+int RunSabineHost(CefMainArgs main_args, int argc, char* argv[], void* sandbox_info) {
   CefRefPtr<CefCommandLine> command_line = CefCommandLine::CreateCommandLine();
 #if defined(OS_WIN) || defined(_WIN32)
   command_line->InitFromString(::GetCommandLineW());
@@ -49,7 +51,7 @@ int RunSabineHost(CefMainArgs main_args, int argc, char* argv[]) {
       command_line->HasSwitch("sabine-runtime-smoke-test");
   CefRefPtr<SabineApp> app(new SabineApp(runtime_smoke_test));
 
-  int exit_code = CefExecuteProcess(main_args, app.get(), nullptr);
+  int exit_code = CefExecuteProcess(main_args, app.get(), sandbox_info);
   if (exit_code >= 0) {
     return exit_code;
   }
@@ -60,7 +62,7 @@ int RunSabineHost(CefMainArgs main_args, int argc, char* argv[]) {
 #endif
 
   CefSettings settings;
-#if !defined(OS_MAC)
+#if defined(OS_LINUX)
   settings.no_sandbox = true;
 #endif
   settings.windowless_rendering_enabled = true;
@@ -94,7 +96,7 @@ int RunSabineHost(CefMainArgs main_args, int argc, char* argv[]) {
     CefString(&settings.cache_path).FromString(cache_path);
   }
 
-  if (!CefInitialize(main_args, settings, app.get(), nullptr)) {
+  if (!CefInitialize(main_args, settings, app.get(), sandbox_info)) {
     return CefGetExitCode();
   }
 
@@ -105,15 +107,20 @@ int RunSabineHost(CefMainArgs main_args, int argc, char* argv[]) {
 }
 
 #if defined(OS_WIN) || defined(_WIN32)
-int APIENTRY wWinMain(HINSTANCE hInstance,
-                      HINSTANCE hPrevInstance,
-                      LPWSTR lpCmdLine,
-                      int nCmdShow) {
-  (void)hPrevInstance;
-  (void)lpCmdLine;
-  (void)nCmdShow;
-  CefMainArgs main_args(hInstance);
-  return RunSabineHost(main_args, __argc, __argv);
+CEF_BOOTSTRAP_EXPORT int RunWinMain(HINSTANCE instance,
+                                    LPWSTR command_line,
+                                    int show,
+                                    void* sandbox_info,
+                                    cef_version_info_t* version_info) {
+  (void)command_line;
+  (void)show;
+  (void)version_info;
+  if (!sandbox_info) {
+    std::cerr << "Sabine requires the Chromium sandbox bootstrap" << std::endl;
+    return 1;
+  }
+  CefMainArgs main_args(instance);
+  return RunSabineHost(main_args, __argc, __argv, sandbox_info);
 }
 #elif !defined(OS_MAC)
 NO_STACK_PROTECTOR

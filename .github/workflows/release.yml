@@ -101,6 +101,9 @@ jobs:
             cargo run --release -p sabine-cli -- runtime doctor
           } else {
             Copy-Item $env:SABINE_HOST_PATH "release/system/"
+            if ($IsWindows) {
+              Copy-Item ([IO.Path]::ChangeExtension($env:SABINE_HOST_PATH, '.dll')) "release/system/"
+            }
           }
           Copy-Item "target/release/sabine$suffix" "release/"
       - name: Package assets

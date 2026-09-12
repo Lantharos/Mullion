@@ -21,7 +21,9 @@ pub fn prepare_runtime_assets(runtime_dir: &Path) -> io::Result<()> {
             }
         }
     }
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
+    crate::prepare_sandbox_access(runtime_dir, true).map_err(io::Error::other)?;
+    #[cfg(not(any(target_os = "linux", windows)))]
     let _ = runtime_dir;
     Ok(())
 }

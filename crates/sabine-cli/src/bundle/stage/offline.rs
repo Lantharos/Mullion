@@ -92,6 +92,12 @@ pub(super) fn stage_offline_runtime(
             &host,
             &binary_dir.join(host.file_name().unwrap_or_default()),
         )?;
+        if cfg!(windows) {
+            copy_binary(
+                &host.with_extension("dll"),
+                &binary_dir.join("sabine-host.dll"),
+            )?;
+        }
     }
     let runtime_name = runtime
         .location

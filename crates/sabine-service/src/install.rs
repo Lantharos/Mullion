@@ -61,10 +61,7 @@ fn complete_service_at(path: PathBuf) -> Option<PathBuf> {
 }
 
 fn complete_managed_system_at(directory: &Path) -> Option<PathBuf> {
-    directory
-        .join(sabine_host_relative_path())
-        .is_file()
-        .then_some(())?;
+    sabine_host::host_is_complete(&directory.join(sabine_host_relative_path())).then_some(())?;
     complete_service_at(directory.join(service_binary_name()))
 }
 
@@ -221,7 +218,7 @@ fn seed_managed_install(service: &Path) -> ServiceResult<PathBuf> {
     let destination = versions_dir().join(version);
     let installed_service = destination.join(service_binary_name());
     if complete_service_at(installed_service.clone()).is_none()
-        || !destination.join(sabine_host_relative_path()).is_file()
+        || !sabine_host::host_is_complete(&destination.join(sabine_host_relative_path()))
     {
         let staging = versions_dir().join(format!("{version}.installing"));
         if staging.exists() {
@@ -254,8 +251,11 @@ fn seed_managed_install(service: &Path) -> ServiceResult<PathBuf> {
                 )));
             }
             let target = staging.join(name);
-            fs::copy(source, &target)?;
+            fs::copy(&source, &target)?;
             make_executable(&target)?;
+            if cfg!(windows) {
+                fs::copy(source.with_extension("dll"), target.with_extension("dll"))?;
+            }
         }
         sabine_runtime::install_directory(&staging, &destination)?;
     }
@@ -436,7 +436,7 @@ fn install_latest_system(
     let destination = install_dir.join(service_binary_name());
     if (matches!(&mode, SystemUpdateMode::Repair { .. })
         || complete_service_at(destination.clone()).is_none()
-        || !install_dir.join(sabine_host_relative_path()).is_file())
+        || !sabine_host::host_is_complete(&install_dir.join(sabine_host_relative_path())))
         && let Err(error) = install_system_archive(&manifest, &install_dir, on_progress)
     {
         record_system_failure(&manifest.version)?;
@@ -569,6 +569,11 @@ fn install_system_archive(
             )));
         }
         make_executable(&source)?;
+    }
+    if !sabine_host::host_is_complete(&staging.join(sabine_host_relative_path())) {
+        return Err(ServiceError::Update(
+            "Sabine system bundle has an incomplete native host".into(),
+        ));
     }
     sabine_runtime::install_directory(&staging, install_dir)?;
     let _ = fs::remove_file(archive);

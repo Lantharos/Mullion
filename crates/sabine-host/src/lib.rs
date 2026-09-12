@@ -55,11 +55,11 @@ pub fn ensure_host(runtime_dir: &Path) -> Result<PathBuf, String> {
     let work_dir = runtime_dir.join(".sabine-host-build").join(&expected_stamp);
     let source_dir = work_dir.join("src");
     let build_dir = work_dir.join("build");
-    if binary.is_file() {
+    if host_is_complete(&binary) {
         return Ok(binary);
     }
     let _lock = HostBuildLock::acquire(runtime_dir)?;
-    if binary.is_file() {
+    if host_is_complete(&binary) {
         return Ok(binary);
     }
     let missing = [
@@ -120,7 +120,8 @@ Use a Minimal or Standard CEF SDK to compile sabine-host; packaged apps should u
             .arg("--parallel"),
     )?;
 
-    if binary.is_file() {
+    if host_is_complete(&binary) {
+        validate_host_protocol(&binary, runtime_dir)?;
         Ok(binary)
     } else {
         Err(format!(
@@ -130,10 +131,14 @@ Use a Minimal or Standard CEF SDK to compile sabine-host; packaged apps should u
     }
 }
 
+pub fn host_is_complete(path: &Path) -> bool {
+    path.is_file() && (!cfg!(windows) || path.with_extension("dll").is_file())
+}
+
 pub fn available_host(runtime_dir: &Path) -> Option<PathBuf> {
     prebuilt_host_path().or_else(|| {
         let path = host_release_binary(runtime_dir);
-        path.is_file().then_some(path)
+        host_is_complete(&path).then_some(path)
     })
 }
 
@@ -142,6 +147,7 @@ pub fn smoke_test_runtime(host: &Path, runtime_dir: &Path) -> Result<(), String>
         .canonicalize()
         .map_err(|error| format!("could not resolve Sabine host {}: {error}", host.display()))?;
     sabine_runtime::prepare_runtime_assets(runtime_dir).map_err(|error| error.to_string())?;
+    validate_host_protocol(&host, runtime_dir)?;
     let binary_dir = runtime_binary_directory(runtime_dir);
     let cache_dir = std::env::temp_dir().join(format!(
         "sabine-runtime-probe-{}-{}",
@@ -261,7 +267,7 @@ impl Drop for TemporaryDirectory {
 fn prebuilt_host_path() -> Option<PathBuf> {
     if let Some(path) = std::env::var_os("SABINE_HOST_PATH")
         && let Ok(path) = PathBuf::from(path).canonicalize()
-        && path.is_file()
+        && host_is_complete(&path)
     {
         return Some(path);
     }
@@ -269,7 +275,7 @@ fn prebuilt_host_path() -> Option<PathBuf> {
         && let Some(directory) = executable.parent()
     {
         let path = installed_host_path(directory);
-        if path.is_file() {
+        if host_is_complete(&path) {
             return Some(path);
         }
     }
@@ -297,7 +303,7 @@ fn prebuilt_host_path() -> Option<PathBuf> {
             .ok()?;
     let directory = bin.join("versions").join(current.active);
     let path = installed_host_path(&directory);
-    path.is_file().then_some(path)
+    host_is_complete(&path).then_some(path)
 }
 
 fn installed_host_path(directory: &Path) -> PathBuf {

@@ -9,6 +9,11 @@ use std::{
 pub const HOST_PROTOCOL_VERSION: &str = "2";
 
 pub fn validate_host_protocol(host: &Path, runtime_dir: &Path) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        sabine_runtime::prepare_sandbox_access(host, false)?;
+        sabine_runtime::prepare_sandbox_access(&host.with_extension("dll"), false)?;
+    }
     let probe = std::env::temp_dir().join(format!(
         "sabine-host-check-{}-{}",
         std::process::id(),

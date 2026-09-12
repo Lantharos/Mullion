@@ -3,6 +3,7 @@
 
 #include "include/cef_app.h"
 
-int RunSabineHost(CefMainArgs main_args, int argc, char* argv[]);
+int RunSabineHost(CefMainArgs main_args, int argc, char* argv[],
+                  void* sandbox_info = nullptr);
 
 #endif

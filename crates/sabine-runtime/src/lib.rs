@@ -15,8 +15,12 @@ mod lease;
 mod paths;
 mod process;
 mod resolve;
+#[cfg(windows)]
+mod sandbox_windows;
 mod types;
 mod version;
+#[cfg(windows)]
+pub use sandbox_windows::prepare_sandbox_access;
 
 pub(crate) const MIN_CEF_MAJOR: &str = "151";
 

@@ -82,6 +82,7 @@ jobs:
           $hostPath = cargo run --release -p sabine-cli -- runtime prepare | Select-Object -Last 1
           if ($LASTEXITCODE -ne 0) { throw "native host preparation failed" }
           Copy-Item $hostPath target/release/sabine-host.exe
+          Copy-Item ([IO.Path]::ChangeExtension($hostPath, '.dll')) target/release/sabine-host.dll
       - name: Generate real app and signing key
         shell: pwsh
         run: |
