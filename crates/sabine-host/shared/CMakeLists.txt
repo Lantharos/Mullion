@@ -53,6 +53,7 @@ set(SABINE_HOST_SOURCES
   osr/callbacks.cc
   osr/recovery.cc
   osr/downloads.cc
+  osr/permissions.cc
   osr/drag.cc
   osr/guest/commands.cc
   osr/guest/lifecycle.cc

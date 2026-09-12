@@ -19,6 +19,7 @@
 #include "include/cef_context_menu_handler.h"
 #include "include/cef_display_handler.h"
 #include "include/cef_download_handler.h"
+#include "include/cef_permission_handler.h"
 #include "include/cef_render_handler.h"
 #include "include/cef_request_handler.h"
 #include "include/cef_request_context.h"
@@ -55,6 +56,7 @@ class SabineOsrHandler : public CefClient,
                        public CefDragHandler,
                        public CefLifeSpanHandler,
                        public CefLoadHandler,
+                       public CefPermissionHandler,
                        public CefRenderHandler,
                        public CefRequestHandler {
  public:
@@ -78,8 +80,14 @@ class SabineOsrHandler : public CefClient,
   CefRefPtr<CefDragHandler> GetDragHandler() override { return this; }
   CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override { return this; }
   CefRefPtr<CefLoadHandler> GetLoadHandler() override { return this; }
+  CefRefPtr<CefPermissionHandler> GetPermissionHandler() override { return this; }
   CefRefPtr<CefRenderHandler> GetRenderHandler() override { return this; }
   CefRefPtr<CefRequestHandler> GetRequestHandler() override { return this; }
+  bool OnShowPermissionPrompt(CefRefPtr<CefBrowser> browser,
+                              uint64_t prompt_id,
+                              const CefString& requesting_origin,
+                              uint32_t requested_permissions,
+                              CefRefPtr<CefPermissionPromptCallback> callback) override;
   void OnRenderProcessTerminated(CefRefPtr<CefBrowser> browser,
                                 TerminationStatus status, int error_code,
                                 const CefString& error_string) override;

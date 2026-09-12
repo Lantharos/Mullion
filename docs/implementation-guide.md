@@ -381,6 +381,10 @@ through `sabine`.
 
 ## Bridge security
 
+Browser permission prompts are denied explicitly. Camera and microphone requests are denied by
+CEF's off-screen policy, and notification/geolocation requests return a denial instead of remaining
+pending for an unavailable prompt. Sabine does not currently expose a browser permission grant API.
+
 Bridge commands must be registered before launch. Each command can constrain targets and origins.
 The host rejects unknown commands, invalid targets, and origins outside the configured allowlist.
 
