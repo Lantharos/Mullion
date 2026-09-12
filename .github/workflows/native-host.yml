@@ -23,6 +23,10 @@ jobs:
           sudo apt-get install --yes libwayland-dev libfontconfig1-dev libxkbcommon-dev libx11-dev libgtk-3-dev libnss3-dev libasound2-dev libgbm-dev ninja-build
       - run: rustup toolchain install 1.90 --profile minimal
       - run: rustup override set 1.90
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: native-host
+          cache-on-failure: true
       - name: Build CLI and service
         run: cargo build --locked -p sabine-cli -p sabine-service
       - name: Build native CEF host

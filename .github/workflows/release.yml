@@ -43,9 +43,13 @@ jobs:
           }
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install --yes libwayland-dev libfontconfig1-dev libxkbcommon-dev libx11-dev libgtk-3-dev libnss3-dev libasound2-dev ninja-build
+        run: sudo apt-get update && sudo apt-get install --yes libwayland-dev libfontconfig1-dev libxkbcommon-dev libx11-dev libgtk-3-dev libnss3-dev libasound2-dev libgbm-dev ninja-build
       - run: rustup toolchain install 1.90 --profile minimal
       - run: rustup override set 1.90
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-${{ matrix.target }}
+          cache-on-failure: true
       - run: cargo build --release -p sabine-cli -p sabine-service
       - name: Verify hidden Windows process creation
         if: runner.os == 'Windows'
@@ -79,6 +83,7 @@ jobs:
         shell: pwsh
         run: |
           $hostPath = cargo run --release -p sabine-cli -- runtime prepare | Select-Object -Last 1
+          if ($LASTEXITCODE -ne 0) { throw 'Native CEF host preparation failed' }
           "SABINE_HOST_PATH=$hostPath" >> $env:GITHUB_ENV
       - name: Stage system and CLI
         shell: pwsh
@@ -98,15 +103,28 @@ jobs:
             Copy-Item -LiteralPath $hostBundle "release/system/" -Recurse
             $stagedHostBundle = "release/system/sabine-host.app"
             $env:SABINE_HOST_PATH = (Resolve-Path "$stagedHostBundle/Contents/MacOS/sabine-host").Path
-            cargo run --release -p sabine-cli -- runtime doctor
           } else {
             Copy-Item $env:SABINE_HOST_PATH "release/system/"
             if ($IsWindows) {
               Copy-Item ([IO.Path]::ChangeExtension($env:SABINE_HOST_PATH, '.dll')) "release/system/"
               Copy-Item (Join-Path (Split-Path $env:SABINE_HOST_PATH) 'chrome_elf.dll') "release/system/"
             }
+            $env:SABINE_HOST_PATH = (Resolve-Path "release/system/sabine-host$suffix").Path
           }
+          "SABINE_HOST_PATH=$env:SABINE_HOST_PATH" >> $env:GITHUB_ENV
           Copy-Item "target/release/sabine$suffix" "release/"
+      - name: Permit the staged Linux host sandbox under AppArmor
+        if: runner.os == 'Linux'
+        run: |
+          target/release/sabine runtime sandbox-profile > sabine-apparmor
+          sudo install -m 644 sabine-apparmor /etc/apparmor.d/sabine-release
+          sudo apparmor_parser -r /etc/apparmor.d/sabine-release
+      - name: Validate the staged Chromium runtime
+        shell: pwsh
+        run: |
+          $suffix = if ($IsWindows) { '.exe' } else { '' }
+          & "release/sabine$suffix" runtime doctor --json
+          if ($LASTEXITCODE -ne 0) { throw 'The staged CEF host could not render and shut down' }
       - name: Package assets
         shell: pwsh
         run: |
