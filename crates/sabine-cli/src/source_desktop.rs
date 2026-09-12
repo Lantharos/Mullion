@@ -6,6 +6,8 @@ use std::process::Stdio;
 
 #[cfg(target_os = "linux")]
 use crate::commands::command_exists;
+#[cfg(target_os = "macos")]
+use crate::macos_bundle::xml;
 use crate::source_install::SourceApp;
 
 #[cfg(target_os = "linux")]
@@ -124,18 +126,28 @@ pub fn install_macos_app(
     std::fs::create_dir_all(&macos).map_err(|error| error.to_string())?;
     std::fs::write(
         contents.join("Info.plist"),
-        format!(
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\"><dict><key>CFBundleIdentifier</key><string>{}</string><key>CFBundleName</key><string>{}</string><key>CFBundleExecutable</key><string>launch</string><key>CFBundleVersion</key><string>{}</string></dict></plist>\n",
-            xml(&app.id),
-            xml(&app.name),
-            xml(&app.version)
-        ),
+        crate::macos_bundle::info_plist(
+            &app.id,
+            &app.name,
+            &app.version,
+            "launch",
+            app.icon.is_some(),
+        )?,
     )
     .map_err(|error| error.to_string())?;
+    if let Some(icon) = &app.icon {
+        let resources = contents.join("Resources");
+        let icon_set = resources.join("icons");
+        crate::icon_assets::stage_icon_set(&app.id, icon, &icon_set)?;
+        crate::icon_assets::stage_macos_icon(&app.id, &icon_set, &resources.join("app.icns"))?;
+    }
     let launch = macos.join("launch");
     std::fs::write(
         &launch,
-        format!("#!/bin/sh\nexec '{}' \"$@\"\n", wrapper.display()),
+        format!(
+            "#!/bin/sh\nexec '{}' \"$@\"\n",
+            wrapper.display().to_string().replace('\'', "'\\''")
+        ),
     )
     .map_err(|error| error.to_string())?;
     use std::os::unix::fs::PermissionsExt;
@@ -176,14 +188,4 @@ fn desktop_exec(path: &Path) -> String {
 #[cfg(target_os = "windows")]
 fn powershell_string(value: &str) -> String {
     value.replace('\'', "''").replace(['\r', '\n'], " ")
-}
-
-#[cfg(target_os = "macos")]
-fn xml(value: &str) -> String {
-    value
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&apos;")
 }

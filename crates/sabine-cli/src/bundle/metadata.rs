@@ -88,29 +88,6 @@ pub(super) fn app_run(executable: &str) -> String {
     )
 }
 
-pub(super) fn info_plist(app: &BundleApp, executable: &str) -> String {
-    format!(
-        r#"<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-<key>CFBundleIdentifier</key><string>{}</string>
-<key>CFBundleName</key><string>{}</string>
-<key>CFBundleDisplayName</key><string>{}</string>
-<key>CFBundleExecutable</key><string>{}</string>
-<key>CFBundleVersion</key><string>{}</string>
-<key>CFBundleShortVersionString</key><string>{}</string>
-<key>LSMinimumSystemVersion</key><string>12.0</string>
-</dict></plist>
-"#,
-        xml(&app.id),
-        xml(&app.name),
-        xml(&app.name),
-        xml(executable),
-        xml(&app.version),
-        xml(&app.version)
-    )
-}
-
 pub(super) fn windows_manifest(app: &BundleApp) -> String {
     format!(
         r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>

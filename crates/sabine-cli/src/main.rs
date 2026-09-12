@@ -2,6 +2,7 @@ mod bundle;
 mod commands;
 mod dev;
 mod icon_assets;
+mod macos_bundle;
 mod process_tree;
 mod release;
 mod runtime;

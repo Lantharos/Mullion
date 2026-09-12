@@ -170,6 +170,24 @@ jobs:
             if ($registered.PSObject.Properties['dev.sabine.release-probe']) { throw "MSI left the app registered" }
             if (Test-Path $installedExe.FullName) { throw "MSI left its application executable" }
           }
+      - name: Validate macOS bundle metadata and native icon decoding
+        if: runner.os == 'macOS'
+        shell: pwsh
+        run: |
+          $bundle = Get-ChildItem dist/dmg -Filter '*.app' -Directory -Recurse | Select-Object -First 1
+          $plist = Join-Path $bundle.FullName 'Contents/Info.plist'
+          & plutil -lint $plist
+          if ($LASTEXITCODE -ne 0) { throw 'Invalid bundle property list' }
+          $kind = & plutil -extract CFBundlePackageType raw $plist
+          if ($kind -cne 'APPL') { throw 'Bundle is not registered as an application' }
+          $iconName = & plutil -extract CFBundleIconFile raw $plist
+          if ($LASTEXITCODE -ne 0) { throw 'Bundle icon metadata is missing' }
+          $icon = Join-Path $bundle.FullName "Contents/Resources/$iconName"
+          $iconSet = Join-Path $env:RUNNER_TEMP 'sabine-probe.iconset'
+          & iconutil --convert iconset --output $iconSet $icon
+          if ($LASTEXITCODE -ne 0) { throw 'macOS could not decode the application icon' }
+          $images = @(Get-ChildItem $iconSet -Filter '*.png')
+          if ($images.Count -lt 8) { throw 'Application icon is missing standard or Retina sizes' }
       - name: Install, repair, launch, and uninstall Windows setup
         if: matrix.target == 'exe'
         shell: pwsh

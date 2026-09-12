@@ -8,9 +8,7 @@ use std::{
 use super::{
     BundleFormat,
     config::BundleApp,
-    metadata::{
-        app_run, desktop_entry, info_plist, runtime_manifest, sanitize_path, windows_manifest,
-    },
+    metadata::{app_run, desktop_entry, runtime_manifest, sanitize_path, windows_manifest},
 };
 use crate::{bundle::build_target_for_format, icon_assets};
 use sabine_service::{AppArtifactKind, AppInstallMode};
@@ -144,8 +142,17 @@ fn stage_macos(
     fs::create_dir_all(&macos).map_err(|error| error.to_string())?;
     fs::create_dir_all(&resources).map_err(|error| error.to_string())?;
     copy_binary(binary, &macos.join(executable))?;
-    fs::write(contents.join("Info.plist"), info_plist(app, executable))
-        .map_err(|error| error.to_string())?;
+    fs::write(
+        contents.join("Info.plist"),
+        crate::macos_bundle::info_plist(
+            &app.id,
+            &app.name,
+            &app.version,
+            executable,
+            app.icon.is_some(),
+        )?,
+    )
+    .map_err(|error| error.to_string())?;
     let install_mode = if format == BundleFormat::Dmg {
         AppInstallMode::Package
     } else {
@@ -157,6 +164,13 @@ fn stage_macos(
         install_mode,
         (format == BundleFormat::Dmg).then_some(AppArtifactKind::Dmg),
     )?;
+    if app.icon.is_some() {
+        icon_assets::stage_macos_icon(
+            &app.id,
+            &resources.join("icons"),
+            &resources.join("app.icns"),
+        )?;
+    }
     Ok(app_dir)
 }
 
@@ -208,18 +222,19 @@ fn stage_appimage(
     let private_dir = stage_unix_binary(app, binary, &app_dir, executable)?;
     fs::write(app_dir.join("AppRun"), app_run(executable)).map_err(|error| error.to_string())?;
     make_executable(&app_dir.join("AppRun")).map_err(|error| error.to_string())?;
-    let icon = stage_appimage_icon(app, &app_dir)?;
+    let resources = private_dir.join("resources");
+    stage_resources(
+        app,
+        &resources,
+        AppInstallMode::Package,
+        Some(AppArtifactKind::AppImage),
+    )?;
+    let icon = stage_appimage_icon(app, &app_dir, &resources)?;
     fs::write(
         app_dir.join(format!("{}.desktop", app.id)),
         desktop_entry(app, executable, icon.as_deref()),
     )
     .map_err(|error| error.to_string())?;
-    stage_resources(
-        app,
-        &private_dir.join("resources"),
-        AppInstallMode::Package,
-        Some(AppArtifactKind::AppImage),
-    )?;
     Ok(app_dir)
 }
 
@@ -298,17 +313,25 @@ fn linux_icon_path(app: &BundleApp, format: BundleFormat) -> Option<String> {
     ))
 }
 
-fn stage_appimage_icon(app: &BundleApp, app_dir: &Path) -> Result<Option<String>, String> {
-    let Some(icon) = app.icon.as_ref().filter(|icon| icon.is_file()) else {
+fn stage_appimage_icon(
+    app: &BundleApp,
+    app_dir: &Path,
+    resources: &Path,
+) -> Result<Option<String>, String> {
+    if app.icon.is_none() {
         return Ok(None);
+    }
+    let icons = resources.join("icons");
+    let scalable = icons.join(format!("scalable/apps/{}.svg", app.id));
+    let (source, extension) = if scalable.is_file() {
+        (scalable, "svg")
+    } else {
+        (icons.join(format!("512x512/apps/{}.png", app.id)), "png")
     };
-    let Some(extension) = icon.extension() else {
-        return Ok(None);
-    };
-    let extension = extension.to_string_lossy();
-    fs::copy(icon, app_dir.join(format!("{}.{}", app.id, extension)))
+    fs::copy(source, app_dir.join(format!("{}.{extension}", app.id)))
         .map_err(|error| error.to_string())?;
-    icon_assets::stage_icon_set(&app.id, icon, &app_dir.join("usr/share/icons/hicolor"))?;
+    copy_dir_recursive(&icons, &app_dir.join("usr/share/icons/hicolor"))
+        .map_err(|error| error.to_string())?;
     Ok(Some(app.id.clone()))
 }
 

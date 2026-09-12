@@ -464,8 +464,10 @@ explicitly x64 and installs under the current user profile. Its wizard prepares 
 supports repair, and rolls back app registration alongside packaged files on failure. Uninstall
 removes the app registration and preserves the shared Sabine system. MSI builds require WiX 7 with
 the UI and Util extensions. The configured icon appears in the Start menu shortcut, and the release
-workflow installs and launches the package before publication. Raster icons are encoded directly; SVG
-packaging requires ImageMagick so the CLI can generate Windows and freedesktop raster icon sizes.
+workflow installs and launches the package before publication. Raster icons are decoded and resized in process. SVG packaging requires ImageMagick for a
+single vector-to-raster conversion; all native icon sizes are generated from that image. macOS
+bundles include standard and Retina ICNS sizes, the application package type, and numeric
+bundle versions. The runtime manifest retains the full SemVer version, including prereleases.
 The released Sabine CLI, service, and daemon also use the static Microsoft runtime. First-launch
 downloads use the in-process HTTP client, and unavoidable helper processes are created without a
 console so only the native bootstrap progress window is visible.

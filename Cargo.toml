@@ -52,7 +52,8 @@ dunce = "1.0.5"
 futures-util = "0.3.33"
 getrandom = "0.4.3"
 glyphon = "0.12.0"
-image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp", "bmp"] }
+icns = { version = "0.4.0", default-features = false, features = ["pngio"] }
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp", "bmp", "ico"] }
 layershellev = { package = "exwlshellev", git = "https://github.com/Lantharos/exwlshelleventloop.git", rev = "12286020d31c6b0b3aab54c9b206ea1a86d144bf" }
 smithay-client-toolkit = "0.20.0"
 ksni = { version = "0.3.6", features = ["blocking"] }
