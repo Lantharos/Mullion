@@ -211,6 +211,8 @@
           bounds,
           partition: options.partition ? String(options.partition) : undefined,
           allowBridge: Boolean(options.allowBridge),
+          interceptedShortcuts: (options.interceptedShortcuts || []).map(String),
+          interceptHorizontalWheel: Boolean(options.interceptHorizontalWheel),
           visible: options.visible === undefined ? true : Boolean(options.visible),
           popupPolicy: String(options.popupPolicy || "deny"),
           allowDownloads:
@@ -288,6 +290,7 @@
           downloadId: String(downloadId),
           action: String(action),
           savePath: options.savePath ? String(options.savePath) : undefined,
+          showDialog: Boolean(options.showDialog),
         });
       },
       list() {

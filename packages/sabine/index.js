@@ -161,21 +161,11 @@ export class Guest {
    * @returns {Promise<Guest>}
    */
   static async create(options) {
-    const result = /** @type {{ id?: string } | string | null} */ (
-      await requireGuestApi().create(options)
-    );
-    const id =
-      typeof result === "string"
-        ? result
-        : result && typeof result === "object" && "id" in result && result.id
-          ? String(result.id)
-          : options.id
-            ? String(options.id)
-            : null;
-    if (!id) {
+    const result = await requireGuestApi().create(options);
+    if (!result?.id) {
       throw new Error("Sabine guest.create did not return an id");
     }
-    return new Guest(id);
+    return new Guest(result.id);
   }
 
   /** @returns {Promise<GuestInfo | unknown>} */
@@ -318,8 +308,8 @@ export const guest = {
   },
   /**
    * @param {string} downloadId
-   * @param {string} action
-   * @param {{ savePath?: string }} [options]
+   * @param {import("./index.d.ts").GuestDownloadAction} action
+   * @param {import("./index.d.ts").GuestDownloadOptions} [options]
    */
   downloadAction(downloadId, action, options = {}) {
     return requireGuestApi().downloadAction(downloadId, action, options);
@@ -366,6 +356,7 @@ export default {
   listen,
   bridge,
   events,
+  app,
   appWindow,
   Guest,
   guest,

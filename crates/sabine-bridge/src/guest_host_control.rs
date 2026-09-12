@@ -16,7 +16,7 @@ use crate::guest_download::GuestDownloadAction;
 
 /// Host-control payloads sent over `SABINE_HOST_CONTROL` for guests.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "op", rename_all = "camelCase")]
+#[serde(tag = "op", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum GuestHostControl {
     Create(GuestCreateOptions),
     Destroy {
@@ -60,6 +60,8 @@ pub enum GuestHostControl {
         action: GuestDownloadAction,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         save_path: Option<String>,
+        #[serde(default)]
+        show_dialog: bool,
     },
     List,
     Get {
@@ -145,15 +147,14 @@ impl GuestHostControl {
                     BridgeError::new(format!("unknown download action: {action_name}"))
                 })?;
                 Ok(Self::DownloadAction {
-                    download_id: required_string(&command.params, "downloadId")
-                        .or_else(|_| required_string(&command.params, "download_id"))?,
+                    download_id: required_string(&command.params, "downloadId")?,
                     action,
                     save_path: command
                         .params
                         .get("savePath")
-                        .or_else(|| command.params.get("save_path"))
                         .and_then(Value::as_str)
                         .map(str::to_string),
+                    show_dialog: bool_field(&command.params, "showDialog").unwrap_or(false),
                 })
             }
             LIST_COMMAND => Ok(Self::List),

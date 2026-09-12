@@ -92,8 +92,16 @@ export interface GuestDownloadEvent {
   mimeType: string;
   totalBytes: number;
   receivedBytes: number;
-  state: string;
-  savePath: string;
+  state: "requested" | "progress" | "completed" | "cancelled" | "interrupted";
+  savePath?: string | null;
+  error?: string | null;
+}
+
+export type GuestDownloadAction = "accept" | "cancel" | "pause" | "resume";
+
+export interface GuestDownloadOptions {
+  savePath?: string;
+  showDialog?: boolean;
 }
 
 export interface GuestShortcutEvent {
@@ -123,7 +131,7 @@ export interface GuestFaviconEvent {
 }
 
 export interface SabineGuestApi {
-  create(options: GuestCreateOptions): Promise<{ id: string } | string | unknown>;
+  create(options: GuestCreateOptions): Promise<{ id: string }>;
   destroy(id: string): Promise<unknown>;
   navigate(id: string, url: string): Promise<unknown>;
   setBounds(id: string, bounds: GuestBounds): Promise<unknown>;
@@ -138,8 +146,8 @@ export interface SabineGuestApi {
   executeJavaScript(id: string, code: string): Promise<unknown>;
   downloadAction(
     downloadId: string,
-    action: string,
-    options?: { savePath?: string },
+    action: GuestDownloadAction,
+    options?: GuestDownloadOptions,
   ): Promise<unknown>;
   list(): Promise<unknown>;
   get(id: string): Promise<unknown>;
@@ -250,8 +258,8 @@ export declare const guest: {
   capturePreview(id: string): Promise<unknown>;
   downloadAction(
     downloadId: string,
-    action: string,
-    options?: { savePath?: string },
+    action: GuestDownloadAction,
+    options?: GuestDownloadOptions,
   ): Promise<unknown>;
 };
 
@@ -271,4 +279,19 @@ declare global {
   }
 }
 
-export {};
+declare const api: {
+  isAvailable: typeof isAvailable;
+  sabine: typeof sabine;
+  invoke: typeof invoke;
+  listen: typeof listen;
+  bridge: typeof bridge;
+  events: typeof events;
+  app: typeof app;
+  appWindow: typeof appWindow;
+  Guest: typeof Guest;
+  guest: typeof guest;
+  activity: typeof activity;
+  popup: typeof popup;
+};
+
+export default api;

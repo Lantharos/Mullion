@@ -408,7 +408,8 @@ wheel interception are all explicit guest properties.
 
 Main-page downloads open the native Save dialog. Guests require `allowDownloads` and emit
 `guest.download` before the app accepts the transfer with `guest.downloadAction`; the app can
-choose a destination or request the Save dialog. A window retains at most 256 pending or active
+choose a destination with `{ savePath }` or request the Save dialog with `{ showDialog: true }`.
+The JavaScript package and Rust host controls use the same options. A window retains at most 256 pending or active
 downloads, and terminal events release their entries. The cancellation state is `cancelled`.
 Windows browsers opened with a visible native window use its HWND as the dialog owner. Linux
 and macOS use the system dialog's default ownership; native window parenting across those
