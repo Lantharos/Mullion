@@ -169,7 +169,7 @@ pub(super) fn resolve_app(source: &Path, overrides: ConfigOverrides) -> Result<B
     {
         return Err(format!("app icon was not found: {}", icon.display()));
     }
-    if !sabine_service::valid_app_id(&id) || matches!(id.as_str(), "." | "..") {
+    if !sabine_service::valid_app_id(&id) {
         return Err("app id must contain lowercase letters, digits, dots or hyphens and must not be a relative path".to_string());
     }
     for (field, value) in [("name", &name), ("version", &version)] {

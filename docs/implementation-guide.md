@@ -47,7 +47,10 @@ key, then validates app id, channel, exact platform/package target, version, art
 SHA-256 before staging it. Each app has its own Actions signing secret; only the public key ships in
 the app.
 
-Writable managed archives activate side by side in the background. The original executable acts as
+Writable managed archives activate side by side in the background. Each app has an OS-owned
+update lock covering staging, application, and deferral. Archives are extracted into a separate
+staging directory and their executable is checked before publication; failed replacements
+preserve the installed directory. The original executable acts as
 a stable bootstrap and forwards the next launch to the executable recorded in the service registry.
 Native packages are also downloaded in the background, but activation is foreground: the next app
 launch offers Install or Later, exits after acceptance, invokes MSI, DMG replacement, AppImage

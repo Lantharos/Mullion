@@ -129,6 +129,7 @@ impl SabineService {
     }
 
     fn update_app_with_soak(&self, id: &str, require_soak: bool) -> ServiceResult<AppUpdateStatus> {
+        let _update_lock = self.app_update_lock(id)?;
         let app = self.app(id)?;
         let update = app
             .manifest
@@ -198,16 +199,14 @@ impl SabineService {
             .join(id)
             .join("releases")
             .join(&release.version);
+        if let Some(parent) = release_dir.parent() {
+            sabine_runtime::recover_directory_installs(parent)?;
+        }
         let installed_executable = release_dir.join(executable);
-        if !installed_executable.is_file() {
+        if installers::validate_executable(&installed_executable).is_err() {
             install_archive(&self.root, id, &release.version, artifact, &release_dir)?;
         }
-        if !installed_executable.is_file() {
-            return Err(ServiceError::Update(format!(
-                "artifact did not contain {}",
-                executable.display()
-            )));
-        }
+        installers::validate_executable(&installed_executable)?;
         self.activate_managed_update(id, &release.version, installed_executable)?;
         Ok(AppUpdateStatus::Installed {
             version: release.version,
@@ -215,6 +214,7 @@ impl SabineService {
     }
 
     pub fn pending_app_update(&self, id: &str) -> ServiceResult<Option<PendingAppUpdate>> {
+        validate_app_id(id)?;
         let path = pending_path(&self.root, id);
         if !path.is_file() {
             return Ok(None);
@@ -232,6 +232,7 @@ impl SabineService {
         id: &str,
         install_target: Option<&Path>,
     ) -> ServiceResult<bool> {
+        let _update_lock = self.app_update_lock(id)?;
         let Some(pending) = self.pending_app_update(id)? else {
             return Ok(false);
         };
@@ -242,12 +243,22 @@ impl SabineService {
     }
 
     pub fn defer_pending_app_update(&self, id: &str) -> ServiceResult<bool> {
+        let _update_lock = self.app_update_lock(id)?;
         let Some(mut pending) = self.pending_app_update(id)? else {
             return Ok(false);
         };
         pending.prompt_after = unix_timestamp().saturating_add(crate::UPDATE_SOAK.as_secs());
         write_json_atomic(&pending_path(&self.root, id), &pending)?;
         Ok(true)
+    }
+
+    fn app_update_lock(&self, id: &str) -> ServiceResult<sabine_runtime::FileLock> {
+        validate_app_id(id)?;
+        Ok(sabine_runtime::FileLock::acquire(
+            &self.root.join("apps").join(id).join("update.lock"),
+            std::time::Duration::from_secs(10),
+            |_| {},
+        )?)
     }
 
     fn stage_package_update(
@@ -313,6 +324,14 @@ impl SabineService {
         registered.manifest.executable = executable;
         registered.updated_at = unix_timestamp();
         self.save_registry(&registry)
+    }
+}
+
+fn validate_app_id(id: &str) -> ServiceResult<()> {
+    if crate::valid_app_id(id) {
+        Ok(())
+    } else {
+        Err(ServiceError::Update("invalid app identifier".to_string()))
     }
 }
 

@@ -411,6 +411,7 @@ pub fn default_maintenance_interval() -> Duration {
 
 pub fn valid_app_id(value: &str) -> bool {
     !value.is_empty()
+        && !matches!(value, "." | "..")
         && value.bytes().all(|byte| {
             byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'-')
         })

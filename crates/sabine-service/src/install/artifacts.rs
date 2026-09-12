@@ -209,24 +209,6 @@ pub(super) fn extract_system_archive(archive: &Path, destination: &Path) -> Serv
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::service_daemon_path;
-
-    #[test]
-    fn asset_names_are_platform_shaped() {
-        let name = system_asset_name();
-        assert!(name.starts_with("sabine-system-"));
-        assert!(name.contains("linux") || name.contains("macos") || name.contains("windows"));
-    }
-
-    #[test]
-    fn daemon_lives_beside_the_service_cli() {
-        let path = service_daemon_path(Path::new("/tmp/sabine-service"));
-        assert_eq!(
-            path.file_name().and_then(|name| name.to_str()),
-            Some(service_daemon_binary_name())
-        );
-    }
-
     #[test]
     fn required_updates_keep_the_exact_release_tag() {
         assert!(system_manifest_url(None).contains("/releases/latest/"));

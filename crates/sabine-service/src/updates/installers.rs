@@ -21,17 +21,70 @@ pub(super) fn install_archive(
     let archive = downloads.join(format!("{version}.archive"));
     download_artifact(&artifact.url, &archive)?;
     verify_sha256(&archive, &artifact.sha256)?;
-    let staging = release_dir.with_extension("installing");
+    let parent = release_dir
+        .parent()
+        .ok_or_else(|| ServiceError::Update("release directory has no parent".to_string()))?;
+    let staging = parent.join(".staging").join(version);
     if staging.exists() {
         std::fs::remove_dir_all(&staging)?;
     }
     std::fs::create_dir_all(&staging)?;
-    crate::archive::extract(&archive, &staging)?;
-    if let Some(parent) = release_dir.parent() {
-        std::fs::create_dir_all(parent)?;
+    let executable = artifact.executable.as_ref().ok_or_else(|| {
+        ServiceError::Update("managed update artifact has no executable".to_string())
+    })?;
+    if !safe_relative_path(executable) {
+        return Err(ServiceError::Update(
+            "managed executable must be a relative path".to_string(),
+        ));
     }
-    std::fs::rename(staging, release_dir)?;
+    let installed = (|| -> ServiceResult<()> {
+        crate::archive::extract(&archive, &staging)?;
+        validate_executable(&staging.join(executable))?;
+        sabine_runtime::install_directory(&staging, release_dir)?;
+        Ok(())
+    })();
+    if installed.is_err() {
+        let _ = std::fs::remove_dir_all(&staging);
+    }
+    installed?;
     let _ = std::fs::remove_file(archive);
+    Ok(())
+}
+
+pub(super) fn validate_executable(path: &Path) -> ServiceResult<()> {
+    let metadata = std::fs::metadata(path).map_err(|error| {
+        ServiceError::Update(format!(
+            "invalid app executable {}: {error}",
+            path.display()
+        ))
+    })?;
+    if !metadata.is_file() || metadata.len() == 0 {
+        return Err(ServiceError::Update(format!(
+            "app executable is not a nonempty file: {}",
+            path.display()
+        )));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if metadata.permissions().mode() & 0o111 == 0 {
+            return Err(ServiceError::Update(format!(
+                "app executable has no execute permission: {}",
+                path.display()
+            )));
+        }
+    }
+    #[cfg(windows)]
+    {
+        let mut signature = [0_u8; 2];
+        File::open(path)?.read_exact(&mut signature)?;
+        if signature != *b"MZ" {
+            return Err(ServiceError::Update(format!(
+                "app executable is not a Windows program: {}",
+                path.display()
+            )));
+        }
+    }
     Ok(())
 }
 
