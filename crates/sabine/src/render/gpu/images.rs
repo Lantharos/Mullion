@@ -33,6 +33,7 @@ impl GpuRenderer {
         height: u32,
         bytes: &[u8],
     ) -> Result<(), RendererError> {
+        self.check_device()?;
         let id = id.into();
         if width == 0 || height == 0 {
             return Err(RendererError::Texture(
@@ -90,6 +91,7 @@ impl GpuRenderer {
         region_size: (u32, u32),
         bytes: &[u8],
     ) -> Result<(), RendererError> {
+        self.check_device()?;
         let id = id.into();
         let (width, height) = image_size;
         let (x, y) = origin;
@@ -266,6 +268,7 @@ impl GpuRenderer {
         size: (u32, u32),
         completed: impl FnOnce() + Send + 'static,
     ) -> Result<(), RendererError> {
+        self.check_device()?;
         let id = id.into();
         let (width, height) = size;
         if width == 0 || height == 0 {

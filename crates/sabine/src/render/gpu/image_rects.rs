@@ -10,6 +10,7 @@ impl GpuRenderer {
         height: u32,
         rects: impl IntoIterator<Item = (u32, u32, u32, u32, &'a [u8])>,
     ) -> Result<(), RendererError> {
+        self.check_device()?;
         let id = id.into();
         if width == 0 || height == 0 {
             return Err(RendererError::Texture(

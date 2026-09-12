@@ -10,6 +10,7 @@ use crate::render::rect_pipeline::{
 };
 use crate::render::{DisplayCommand, DisplayList};
 
+mod health;
 mod image_rects;
 mod images;
 mod instance;
@@ -27,6 +28,8 @@ pub enum RendererError {
     Adapter(String),
     #[error("failed to request GPU device: {0}")]
     Device(String),
+    #[error("GPU device was lost: {0}")]
+    DeviceLost(String),
     #[error("text renderer failed: {0}")]
     Text(String),
     #[error("surface validation failed")]
@@ -37,6 +40,7 @@ pub enum RendererError {
 
 pub struct GpuRenderer {
     instance: wgpu::Instance,
+    health: Arc<health::DeviceHealth>,
     device: wgpu::Device,
     queue: wgpu::Queue,
     surface: wgpu::Surface<'static>,
@@ -92,7 +96,11 @@ fn select_surface_alpha_mode(
 }
 
 impl GpuRenderer {
-    pub async fn new(window: Arc<dyn Window>, transparent: bool) -> Result<Self, RendererError> {
+    pub(crate) async fn new(
+        window: Arc<dyn Window>,
+        transparent: bool,
+        wake: impl Fn() + Send + 'static,
+    ) -> Result<Self, RendererError> {
         let size = window.surface_size();
         let instance = instance::shared();
         let surface = instance
@@ -115,6 +123,7 @@ impl GpuRenderer {
             .await
             .map_err(|error| RendererError::Device(error.to_string()))?;
 
+        let health = health::DeviceHealth::watch(&device, wake);
         let capabilities = surface.get_capabilities(&adapter);
         let format = capabilities
             .formats
@@ -227,6 +236,7 @@ impl GpuRenderer {
 
         Ok(Self {
             instance,
+            health,
             device,
             queue,
             surface,
@@ -265,6 +275,9 @@ impl GpuRenderer {
     }
 
     pub fn resize(&mut self, width: u32, height: u32, scale_factor: f32) {
+        if self.health.failure().is_some() {
+            return;
+        }
         if width == 0 || height == 0 {
             return;
         }
@@ -284,7 +297,17 @@ impl GpuRenderer {
         self.surface.configure(&self.device, &self.surface_config);
     }
 
+    pub fn device_loss(&self) -> Option<String> {
+        self.health.failure()
+    }
+
+    fn check_device(&self) -> Result<(), RendererError> {
+        self.device_loss()
+            .map_or(Ok(()), |message| Err(RendererError::DeviceLost(message)))
+    }
+
     pub fn render(&mut self, display_list: &DisplayList) -> Result<(), RendererError> {
+        self.check_device()?;
         self.queue.write_buffer(
             &self.globals_buffer,
             0,

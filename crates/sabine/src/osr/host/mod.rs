@@ -1,6 +1,7 @@
 mod chrome;
 mod config;
 mod events;
+mod gpu_recovery;
 mod guest_preview;
 mod input;
 mod lifecycle;

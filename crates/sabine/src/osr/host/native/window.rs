@@ -14,7 +14,7 @@ use winit::{
 };
 
 use crate::osr::protocol::MAIN_TEXTURE_ID;
-use crate::render::GpuRenderer;
+use crate::render::{GpuRenderer, RendererError};
 
 use super::OsrNativeHost;
 
@@ -98,21 +98,28 @@ impl OsrNativeHost {
         };
         self.surface_size = window.surface_size();
         self.scale_factor = window.scale_factor();
-        let renderer =
-            match pollster::block_on(GpuRenderer::new(window.clone(), self.config.transparent)) {
-                Ok(renderer) => renderer,
-                Err(error) => {
-                    self.fail(format!("Could not initialize GPU rendering: {error}"));
-                    event_loop.exit();
-                    return;
-                }
-            };
+        let proxy = self.proxy.clone();
+        let renderer = match pollster::block_on(GpuRenderer::new(
+            window.clone(),
+            self.config.transparent,
+            move || proxy.wake_up(),
+        )) {
+            Ok(renderer) => renderer,
+            Err(error) => {
+                self.fail(format!("Could not initialize GPU rendering: {error}"));
+                event_loop.exit();
+                return;
+            }
+        };
         self.renderer = Some(renderer);
         self.window = Some(window.clone());
         self.restore_ime_state();
         self.send_screen_origin();
         self.launch_child();
-        self.upload_cached_textures();
+        if let Err(error) = self.upload_cached_textures() {
+            self.fail(format!("Could not restore window textures: {error}"));
+            return;
+        }
         if self.main_frame.is_some() {
             self.present_rendered_surface("first_paint");
         }
@@ -162,45 +169,33 @@ impl OsrNativeHost {
         self.forward_ime(winit::event::Ime::Disabled);
     }
 
-    pub(in crate::osr::host) fn upload_cached_textures(&mut self) {
-        let main_frame = self
-            .main_frame
-            .as_ref()
-            .map(|frame| (frame.width, frame.height));
-        let overlays: Vec<(String, u32, u32, Vec<u8>)> = self
-            .overlays
-            .iter()
-            .map(|(id, overlay)| {
-                (
-                    crate::osr::host::types::overlay_texture_id(id),
-                    overlay.frame.width,
-                    overlay.frame.height,
-                    overlay.buffer.bytes().to_vec(),
-                )
-            })
-            .collect();
-        let main_bytes = self.main_buffer.bytes().to_vec();
+    pub(in crate::osr::host) fn upload_cached_textures(&mut self) -> Result<(), RendererError> {
         let Some(renderer) = self.renderer.as_mut() else {
-            return;
+            return Ok(());
         };
-        if let Some((width, height)) = main_frame {
-            let _ = renderer.update_dynamic_bgra_image_region(
+        if let Some(frame) = &self.main_frame
+            && !self.main_buffer.bytes().is_empty()
+        {
+            renderer.update_dynamic_bgra_image_region(
                 MAIN_TEXTURE_ID,
-                (width, height),
+                (frame.width, frame.height),
                 (0, 0),
-                (width, height),
-                &main_bytes,
-            );
+                (frame.width, frame.height),
+                self.main_buffer.bytes(),
+            )?;
         }
-        for (texture_id, width, height, bytes) in overlays {
-            let _ = renderer.update_dynamic_bgra_image_region(
-                &texture_id,
-                (width, height),
-                (0, 0),
-                (width, height),
-                &bytes,
-            );
+        for (id, overlay) in &self.overlays {
+            if !overlay.buffer.bytes().is_empty() {
+                renderer.update_dynamic_bgra_image_region(
+                    crate::osr::host::types::overlay_texture_id(id),
+                    (overlay.frame.width, overlay.frame.height),
+                    (0, 0),
+                    (overlay.frame.width, overlay.frame.height),
+                    overlay.buffer.bytes(),
+                )?;
+            }
         }
+        Ok(())
     }
 
     pub(in crate::osr::host) fn update_effect_regions(&self) {

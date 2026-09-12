@@ -9,6 +9,14 @@ This document describes the current architecture and the boundaries contributors
 local file. Rust and JavaScript dependencies reference the CLI’s Sabine release tag; generated
 projects do not depend on a checkout on the machine that built the CLI.
 
+## Graphics device recovery
+
+A lost graphics device wakes the window event loop and recreates its renderer. Sabine restores
+cached software pixels without cloning the CPU buffers and asks Chromium to repaint its main page,
+popups and guests. Page state and bridge connections remain active. Recovery is limited to three
+attempts per minute; persistent failure closes the app with a diagnostic. If Windows loses the
+selected physical adapter, restart the app to attach both Chromium and the compositor to its replacement.
+
 ## Browser sandbox
 
 On macOS, every Chromium helper initializes the sandbox from the selected runtime’s

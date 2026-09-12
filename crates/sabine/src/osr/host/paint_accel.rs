@@ -92,6 +92,7 @@ impl OsrNativeHost {
         };
         match &frame.surface {
             OsrSurface::Main => {
+                self.main_buffer.release();
                 self.main_frame = Some(stub);
                 self.clear_pending_resize_paint();
             }
@@ -106,6 +107,7 @@ impl OsrNativeHost {
                             frame: stub.clone(),
                             buffer: crate::osr::frame_buffer::FrameBuffer::new(),
                         });
+                entry.buffer.release();
                 entry.frame = stub;
             }
         }

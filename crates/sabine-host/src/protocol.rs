@@ -6,7 +6,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const HOST_PROTOCOL_VERSION: &str = "2";
+pub const HOST_PROTOCOL_VERSION: &str = "3";
 
 pub fn validate_host_protocol(host: &Path, runtime_dir: &Path) -> Result<(), String> {
     #[cfg(windows)]

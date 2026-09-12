@@ -113,6 +113,17 @@ void SabineOsrHandler::HandleControlLine(const std::string& line) {
     }
   }
   CefRefPtr<CefBrowserHost> host = target_browser->GetHost();
+  if (parts[0] == "repaint") {
+    browser_->GetHost()->Invalidate(PET_VIEW);
+    browser_->GetHost()->Invalidate(PET_POPUP);
+    for (auto* guest : guests_.InZOrder()) {
+      if (guest->browser && guest->visible) {
+        guest->browser->GetHost()->Invalidate(PET_VIEW);
+        guest->browser->GetHost()->Invalidate(PET_POPUP);
+      }
+    }
+    return;
+  }
   if (parts[0] == "capture_lost") {
     host->SendCaptureLostEvent();
     return;

@@ -29,10 +29,12 @@ impl ApplicationHandler for OsrNativeHost {
     }
 
     fn proxy_wake_up(&mut self, event_loop: &dyn ActiveEventLoop) {
+        self.recover_gpu();
         self.process_osr_events(event_loop);
     }
 
     fn window_event(&mut self, event_loop: &dyn ActiveEventLoop, id: WindowId, event: WindowEvent) {
+        self.recover_gpu();
         let Some(window) = self.window.clone() else {
             return;
         };
