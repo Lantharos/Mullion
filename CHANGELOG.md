@@ -1,4 +1,4 @@
-# Sabine 0.24
+# Sabine 0.25
 
 Apps built before Sabine 0.23 must be rebuilt before using this shared system. The minimum
 supported app build is 23 because the bridge authorization and host protocol changed. Existing app registrations
@@ -38,5 +38,7 @@ system's default ownership. Physical Windows/macOS IME and hybrid-GPU behavior s
 testing; CI uses hosted machines. macOS distribution signing and notarization remain the app
 publisher's responsibility.
 
-The v0.23 tag remains available, but its release was stopped when the Linux packaging check found
-an invalid AppArmor attachment for external hosts. Version 0.24 includes the corrected policy.
+The v0.23 and v0.24 tags remain available for source history; neither produced a published release.
+Version 0.25 includes the external-host AppArmor correction caught during v0.23 validation and uses
+the tested Linux CLI to generate release metadata, avoiding the redundant build that stopped v0.24
+publication. Use v0.25 when updating application dependencies.

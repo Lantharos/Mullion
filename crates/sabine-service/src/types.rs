@@ -6,9 +6,9 @@ use std::{
 use thiserror::Error;
 
 pub const REGISTRY_VERSION: u32 = 1;
-pub const SABINE_VERSION: &str = "0.24";
+pub const SABINE_VERSION: &str = "0.25";
 pub const SABINE_MAJOR: u32 = 0;
-pub const SABINE_BUILD: u32 = 24;
+pub const SABINE_BUILD: u32 = 25;
 pub const MIN_SUPPORTED_APP_BUILD: u32 = 23;
 pub const UPDATE_SOAK: Duration = Duration::from_secs(24 * 60 * 60);
 pub const UPDATE_ROLLOUT_WINDOW: Duration = Duration::from_secs(6 * 60 * 60);

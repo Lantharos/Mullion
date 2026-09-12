@@ -12,17 +12,17 @@ Building Sabine or an application requires Rust 1.90 or newer. Installed applica
 
 ```toml
 [dependencies]
-sabine = { git = "https://github.com/Lantharos/Sabine", tag = "v0.24" }
+sabine = { git = "https://github.com/Lantharos/Sabine", tag = "v0.25" }
 ```
 
 ```sh
-cargo install --git https://github.com/Lantharos/Sabine --tag v0.24 sabine-cli
+cargo install --git https://github.com/Lantharos/Sabine --tag v0.25 sabine-cli
 ```
 
 For the TypeScript helpers used by the web UI:
 
 ```sh
-bun add github:Lantharos/Sabine#v0.24
+bun add github:Lantharos/Sabine#v0.25
 ```
 
 ## Why Sabine
@@ -261,12 +261,12 @@ installations that predate client-side soak enforcement. Current installations t
 stable zero-to-six-hour rollout offset. An app that explicitly requires the candidate build uses its
 signed versioned manifest directly and can upgrade immediately.
 
-Public Sabine versions use `MAJOR.BUILD`, so this source tree is `0.24`. Cargo and npm encode the same
-release as `0.24.0` because their package formats require three components. Build releases remain
+Public Sabine versions use `MAJOR.BUILD`, so this source tree is `0.25`. Cargo and npm encode the same
+release as `0.25.0` because their package formats require three components. Build releases remain
 compatible within a major unless signed release metadata explicitly raises the minimum app build;
 fundamental contract breaks increment the major.
 
-Sabine 0.24 requires apps built with Sabine 0.23 or newer. Rebuild and redistribute older apps before
+Sabine 0.25 requires apps built with Sabine 0.23 or newer. Rebuild and redistribute older apps before
 upgrading their shared system: the document-bound bridge and host protocol cannot be used by older
 app binaries. macOS releases support Apple Silicon only. Rust builds require version 1.90 or newer.
 
