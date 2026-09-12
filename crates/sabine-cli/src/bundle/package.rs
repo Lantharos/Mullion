@@ -252,7 +252,7 @@ fn package_msi(
     let wxs = staged.root.join("installer.wxs");
     let artifact = artifact_path(app, staged, BundleFormat::Msi, "msi");
     let source_dir = dunce::canonicalize(&staged.app_dir).map_err(|error| error.to_string())?;
-    let icon = source_dir.join("resources/windows-app.ico");
+    let icon = source_dir.join("resources").join("windows-app.ico");
     let icon = icon.is_file().then(|| icon.display().to_string());
     fs::write(
         &wxs,
@@ -278,9 +278,9 @@ fn package_msi(
                 "-ext",
                 "WixToolset.Util.wixext",
             ])
-            .arg(&wxs)
+            .arg(dunce::simplified(&wxs))
             .arg("-o")
-            .arg(&artifact))?;
+            .arg(dunce::simplified(&artifact)))?;
         result.artifacts.push(artifact);
     } else {
         write_script(
@@ -289,8 +289,8 @@ fn package_msi(
                 &mkdir_parent_line(&artifact),
                 &format!(
                     "wix build -arch x64 -wx -pdbtype none -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext {} -o {}",
-                    shell_quote(&wxs.display().to_string()),
-                    shell_quote(&artifact.display().to_string())
+                    shell_quote(&dunce::simplified(&wxs).display().to_string()),
+                    shell_quote(&dunce::simplified(&artifact).display().to_string())
                 ),
             ]),
         )?;
