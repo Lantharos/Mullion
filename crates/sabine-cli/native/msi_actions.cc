@@ -185,6 +185,7 @@ UINT Run(MSIHANDLE install) {
   DWORD exit_code = ERROR_INSTALL_FAILURE;
   Check(GetExitCodeProcess(process.Get(), &exit_code) != FALSE, "Could not read setup result");
   if (cancelled_at || exit_code == ERROR_INSTALL_USEREXIT) return ERROR_INSTALL_USEREXIT;
+  if (exit_code != 0) Log(install, "Setup exited with code " + std::to_string(exit_code));
   return exit_code == 0 ? ERROR_SUCCESS : ERROR_INSTALL_FAILURE;
 }
 }

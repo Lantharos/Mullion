@@ -80,8 +80,13 @@ public static class MsiCancellation {
         bool sawSetup = false;
         var elapsed = Stopwatch.StartNew();
         Handler handler = (context, kind, message) => {
-            if (!cancelled && (message?.Contains("Sabine:") == true || elapsed.Elapsed.TotalSeconds > 180)) {
-                sawSetup = message?.Contains("Sabine:") == true;
+            if (message?.Contains("Sabine:") == true) {
+                sawSetup = true;
+                Console.WriteLine(message);
+            }
+            uint category = kind & 0xff000000;
+            if (!cancelled && (sawSetup || elapsed.Elapsed.TotalSeconds > 180) &&
+                (category == 0x09000000 || category == 0x0a000000)) {
                 cancelled = true;
                 return 2;
             }
@@ -106,7 +111,7 @@ public static class MsiCancellation {
 '@
     $result = [MsiCancellation]::Install($Package, $Log)
     if ($result -ne 1602) {
-        Get-Content $Log -Tail 100
+        Select-String -Path $Log -Pattern 'Sabine:|CustomAction|Return value 3|error|cancel' -Context 2,2
         throw "Cancelled MSI returned $result instead of 1602"
     }
 }

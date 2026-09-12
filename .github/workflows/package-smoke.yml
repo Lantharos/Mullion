@@ -52,6 +52,10 @@ jobs:
           bun-version: latest
       - run: rustup toolchain install 1.89 --profile minimal
       - run: rustup override set 1.89
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: package-${{ matrix.target }}
+          cache-on-failure: true
       - name: Install Linux packaging dependencies
         if: runner.os == 'Linux'
         run: |
@@ -281,6 +285,13 @@ jobs:
               }
             }
           }
+      - name: Preserve Windows installer diagnostics
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: installer-logs-${{ matrix.target }}
+          path: ${{ runner.temp }}/sabine-msi-*.log
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v7
         with:
           name: package-${{ matrix.update_target }}
