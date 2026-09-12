@@ -435,6 +435,10 @@ Touch and tablet input is forwarded as CEF touch input instead of being collapse
 preserving pointer identity, pressure, and touch, pen, or eraser type. CEF's touch event API does not
 carry tablet tilt.
 
+Native screen-reader integration is not implemented. The off-screen browser's accessibility tree
+is not exposed through UI Automation, NSAccessibility, or AT-SPI. Semantic HTML remains useful for
+keyboard navigation, but it does not make Sabine windows accessible to desktop screen readers.
+
 HTML file drags from the primary page are promoted to native OS drags. Incoming URI-list drags,
 including self-drops, are accepted by the native host and emitted to the primary page as
 `window.fileDrag`. Each event carries its phase, absolute file paths, content coordinates, the

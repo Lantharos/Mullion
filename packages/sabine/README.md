@@ -6,7 +6,7 @@ Typed helpers for pages running inside a Sabine window. Prefer these exports ove
 ## Install
 
 ```sh
-bun add github:Lantharos/Sabine
+bun add github:Lantharos/Sabine#v0.23
 ```
 
 ## Bridge commands
@@ -81,7 +81,7 @@ await tab.navigate("https://example.com/docs");
 await tab.setBounds({ x: 16, y: 64, width: 1100, height: 700 });
 await tab.destroy();
 
-// Or keep the id yourself:
+// Guest.create is also available directly:
 const preview = await Guest.create({ html: "<h1>Hi</h1>", bounds: { x: 0, y: 0, width: 320, height: 200 } });
 ```
 

@@ -12,17 +12,17 @@ Building Sabine or an application requires Rust 1.90 or newer. Installed applica
 
 ```toml
 [dependencies]
-sabine = { git = "https://github.com/Lantharos/Sabine", tag = "v0.1.20" }
+sabine = { git = "https://github.com/Lantharos/Sabine", tag = "v0.23" }
 ```
 
 ```sh
-cargo install --git https://github.com/Lantharos/Sabine --tag v0.1.20 sabine-cli
+cargo install --git https://github.com/Lantharos/Sabine --tag v0.23 sabine-cli
 ```
 
 For the TypeScript helpers used by the web UI:
 
 ```sh
-bun add github:Lantharos/Sabine#v0.1.20
+bun add github:Lantharos/Sabine#v0.23
 ```
 
 ## Why Sabine
@@ -252,8 +252,8 @@ the old service binary acts as a short-lived supervisor, rolls back a failed rep
 off repeatedly failing releases. If the active installation is damaged, bootstrap silently replaces
 it from signed release metadata. An app built for a newer Sabine build bypasses the routine rollout
 delay and upgrades the shared system before registration. An app below the system's signed minimum
-supported build is removed from shared integration and gets a native explanation instead of being
-launched against an incompatible contract.
+supported build keeps its registration and update eligibility, but gets a native explanation instead
+of launching against an incompatible contract.
 
 New system releases are published as immutable, non-latest candidates. After 24 hours an hourly
 promotion job moves the newest eligible candidate to the `latest` channel, protecting older Sabine
@@ -261,10 +261,14 @@ installations that predate client-side soak enforcement. Current installations t
 stable zero-to-six-hour rollout offset. An app that explicitly requires the candidate build uses its
 signed versioned manifest directly and can upgrade immediately.
 
-Public Sabine versions use `MAJOR.BUILD`, so this source tree is `0.22`. Cargo and npm encode the same
-release as `0.22.0` because their package formats require three components. Build releases remain
+Public Sabine versions use `MAJOR.BUILD`, so this source tree is `0.23`. Cargo and npm encode the same
+release as `0.23.0` because their package formats require three components. Build releases remain
 compatible within a major unless signed release metadata explicitly raises the minimum app build;
 fundamental contract breaks increment the major.
+
+Build 23 requires apps built with Sabine 0.23 or newer. Rebuild and redistribute older apps before
+upgrading their shared system: the document-bound bridge and host protocol cannot be used by older
+app binaries. macOS releases support Apple Silicon only. Rust builds require version 1.90 or newer.
 
 CEF runtimes in active use hold leases so maintenance cannot prune them. A failed CEF initialization
 is quarantined and resolution falls back to the previous runtime. Quarantines are scoped to the

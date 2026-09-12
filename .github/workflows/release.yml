@@ -133,7 +133,9 @@ jobs:
             Compress-Archive -Path "release/sabine.exe" -DestinationPath "release/sabine-cli-${{ matrix.target }}.zip"
           } else {
             tar -C release/system -czf "release/sabine-system-${{ matrix.target }}.tar.gz" .
+            if ($LASTEXITCODE -ne 0) { throw 'System archive creation failed' }
             tar -C release -czf "release/sabine-cli-${{ matrix.target }}.tar.gz" sabine
+            if ($LASTEXITCODE -ne 0) { throw 'CLI archive creation failed' }
           }
       - uses: actions/upload-artifact@v7
         with:
@@ -164,5 +166,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --draft --verify-tag --generate-notes release/*
+          gh release create "$GITHUB_REF_NAME" --draft --verify-tag --notes-file CHANGELOG.md --generate-notes release/*
           gh release edit "$GITHUB_REF_NAME" --draft=false --latest=false
