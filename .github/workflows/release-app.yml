@@ -102,12 +102,12 @@ jobs:
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
         run: sabine bundle . --target "${{ matrix.target }}" --release
-      - name: Check out matching Windows validation tools
+      - name: Check out Windows validation tools
         if: runner.os == 'Windows'
         uses: actions/checkout@v6
         with:
           repository: Lantharos/Sabine
-          ref: ${{ inputs.sabine_version }}
+          ref: 306d8536448c46bc09e24e03b2818d6978b896f3
           path: .sabine-release
       - name: Verify installed Windows application
         if: runner.os == 'Windows'
