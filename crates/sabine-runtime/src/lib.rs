@@ -1,3 +1,6 @@
+#[cfg(all(target_os = "macos", not(target_arch = "aarch64")))]
+compile_error!("Sabine requires Apple Silicon on macOS");
+
 mod archive;
 mod assets;
 mod detect;

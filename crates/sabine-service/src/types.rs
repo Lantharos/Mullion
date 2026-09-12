@@ -445,7 +445,6 @@ pub(crate) fn platform_target() -> &'static str {
         ("linux", "aarch64") => "linux-aarch64",
         ("windows", "x86_64") => "windows-x86_64",
         ("windows", "aarch64") => "windows-aarch64",
-        ("macos", "x86_64") => "macos-x86_64",
         ("macos", "aarch64") => "macos-aarch64",
         _ => "unsupported",
     }

@@ -20,9 +20,6 @@ jobs:
           - os: windows-latest
             target: windows-x86_64
             archive: zip
-          - os: macos-15-intel
-            target: macos-x86_64
-            archive: tar.gz
           - os: macos-15
             target: macos-aarch64
             archive: tar.gz

@@ -36,9 +36,6 @@ jobs:
           - os: macos-15
             target: dmg
             update_target: macos-aarch64-dmg
-          - os: macos-15-intel
-            target: dmg
-            update_target: macos-x86_64-dmg
           - os: ubuntu-24.04
             target: appimage
             update_target: linux-x86_64-appimage

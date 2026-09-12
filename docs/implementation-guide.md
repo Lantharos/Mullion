@@ -457,7 +457,7 @@ directory, register the app with the service, and create platform launch metadat
 ## Validation
 
 The manual `Native CEF host checks` workflow builds the C++ host against the current Minimal CEF
-SDK on Linux, Windows, Intel macOS, and Apple Silicon macOS, then runs `runtime doctor`. It does
+SDK on Linux, Windows, and Apple Silicon macOS, then runs `runtime doctor`. It does
 not publish a release. This checks native compilation and Chromium initialization; desktop rendering,
 input, multi-window behavior, and GPU/device acceptance require the platform runtime checks too.
 The runtime probe shuts Chromium down normally and captures bounded error details without blocking

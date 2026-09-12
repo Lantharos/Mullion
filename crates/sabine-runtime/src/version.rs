@@ -45,7 +45,6 @@ pub(crate) fn cef_platform_key() -> Option<&'static str> {
         ("linux", "aarch64") => Some("linuxarm64"),
         ("windows", "x86_64") => Some("windows64"),
         ("windows", "aarch64") => Some("windowsarm64"),
-        ("macos", "x86_64") => Some("macosx64"),
         ("macos", "aarch64") => Some("macosarm64"),
         _ => None,
     }

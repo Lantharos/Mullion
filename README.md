@@ -25,7 +25,7 @@ bun add github:Lantharos/Sabine#v0.1.20
 
 ## Why Sabine
 
-- One shared Chromium runtime across Linux, Windows, and macOS
+- One shared Chromium runtime across Linux, Windows, and macOS (Apple Silicon)
 - Native windows with GPU composition, glass materials, trays, and palettes
 - Guests for embedded tabs, previews, auth flows, and untrusted pages
 - Typed Rust ↔ web bridge with explicit command and origin permissions
