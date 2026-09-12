@@ -1,4 +1,5 @@
 mod archive;
+mod http;
 mod install;
 mod lifecycle;
 mod registry;

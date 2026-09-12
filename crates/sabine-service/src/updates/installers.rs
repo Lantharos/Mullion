@@ -90,15 +90,13 @@ pub(super) fn validate_executable(path: &Path) -> ServiceResult<()> {
 
 pub(super) fn download_artifact(url: &str, destination: &Path) -> ServiceResult<()> {
     let temporary = destination.with_extension("download");
-    let response = ureq::get(url)
-        .call()
-        .map_err(|error| ServiceError::Update(format!("artifact download failed: {error}")))?;
-    let (_, body) = response.into_parts();
-    let mut reader = body.into_reader();
-    let mut file = File::create(&temporary)?;
-    std::io::copy(&mut reader, &mut file)?;
-    file.flush()?;
-    file.sync_all()?;
+    sabine_runtime::download_file_with_progress(
+        url,
+        &temporary,
+        None,
+        8 * 1024 * 1024 * 1024,
+        &mut |_| {},
+    )?;
     replace_file(&temporary, destination)?;
     Ok(())
 }

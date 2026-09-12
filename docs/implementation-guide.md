@@ -276,6 +276,13 @@ and special device entries. Extracted assets are validated before replacing an i
 and a runtime leased by a running app cannot be repaired in place. Offline bundles contain only
 release binaries, resources, version metadata, and licensing files, preserving framework symlinks.
 Build offline bundles on their target OS so the embedded runtime and service match the application.
+Runtime, shared-system, and app downloads share bounded transfers with four attempts,
+a 30-minute deadline, and HTTP range continuation. Signed system metadata supplies the exact
+size; app transfers use Content-Length when available and enforce an 8 GiB limit even without
+it. Runtime and system partial files resume across setup attempts. Release manifests are
+limited to 1 MiB, three attempts, and a 60-second deadline. Completed artifacts are verified
+before extraction.
+
 Shared-system and managed-app ZIP and tar.gz extraction also runs in process, with confined paths,
 validated links, and limits on entry count and expanded size. Archive type comes from its contents,
 so download URLs may contain query parameters. ZIP extraction preserves executable permissions

@@ -1,5 +1,4 @@
-mod transfer;
-pub(crate) use transfer::download_file;
+pub(crate) mod transfer;
 
 use std::{
     collections::BTreeMap,
@@ -13,6 +12,27 @@ use crate::error::RuntimeError;
 use crate::paths::runtime_version_path;
 use crate::types::{RuntimeConfig, RuntimeInstallPlan, RuntimeInstallProgress, RuntimeInstallStep};
 use crate::version::{cef_platform_key, channel_preference, major_version, version_sort_key};
+
+pub(crate) fn download_file(
+    url: &str,
+    destination: &Path,
+    size: u64,
+    progress: &mut impl FnMut(RuntimeInstallProgress),
+) -> Result<(), RuntimeError> {
+    transfer::download_file(url, destination, Some(size), size, &mut |update| {
+        let portion = update.downloaded as f32 / size as f32;
+        let message = if update.attempt > 1 {
+            format!("Resuming runtime download (attempt {})", update.attempt)
+        } else {
+            format!("Downloading runtime ({:.0}%)", portion * 100.0)
+        };
+        progress(RuntimeInstallProgress::new(
+            RuntimeInstallStep::Downloading,
+            Some(0.05 + portion * 0.65),
+            message,
+        ));
+    })
+}
 
 pub const DEFAULT_CEF_INDEX_URL: &str = "https://cef-builds.spotifycdn.com/index.json";
 

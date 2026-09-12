@@ -540,7 +540,7 @@ fn install_system_archive(
     let downloads = service_data_dir().join("downloads/system");
     fs::create_dir_all(&downloads)?;
     let archive = downloads.join(format!("{}-{name}", manifest.version));
-    download_file(&artifact.url, &archive, on_progress)?;
+    download_file(&artifact.url, &archive, artifact.size, on_progress)?;
     verify_sha256(&archive, &artifact.sha256)?;
     let actual_size = fs::metadata(&archive)?.len();
     if actual_size != artifact.size {

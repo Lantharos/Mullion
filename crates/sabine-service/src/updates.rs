@@ -363,15 +363,7 @@ fn fetch_release(url: &str) -> ServiceResult<AppReleaseManifest> {
             "release manifest URL must use HTTPS".to_string(),
         ));
     }
-    let mut response = ureq::get(url)
-        .call()
-        .map_err(|error| ServiceError::Update(format!("release request failed: {error}")))?;
-    let body = response
-        .body_mut()
-        .read_to_vec()
-        .map_err(|error| ServiceError::Update(format!("release response failed: {error}")))?;
-    serde_json::from_slice(&body)
-        .map_err(|error| ServiceError::Update(format!("invalid release manifest: {error}")))
+    crate::http::fetch_manifest(url)
 }
 
 fn validate_release(release: &AppReleaseManifest, id: &str, channel: &str) -> ServiceResult<()> {

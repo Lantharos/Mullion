@@ -1,7 +1,7 @@
 use sha2::{Digest, Sha256};
 use std::{
     fs,
-    io::{Read, Write},
+    io::Read,
     path::{Path, PathBuf},
 };
 
@@ -100,43 +100,27 @@ pub(super) fn which(name: &str) -> Result<PathBuf, ()> {
 pub(super) fn download_file(
     url: &str,
     destination: &Path,
+    size: u64,
     on_progress: &mut impl FnMut(PrepareProgress),
 ) -> ServiceResult<()> {
     if let Some(parent) = destination.parent() {
         fs::create_dir_all(parent)?;
     }
     let temporary = destination.with_extension("download");
-    let response = ureq::get(url)
-        .call()
-        .map_err(|error| ServiceError::Update(format!("release download failed: {error}")))?;
-    let total = response
-        .headers()
-        .get("content-length")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.parse::<u64>().ok());
-    let (_, body) = response.into_parts();
-    let mut reader = body.into_reader();
-    let mut output = fs::File::create(&temporary)?;
-    let mut downloaded = 0_u64;
-    let mut buffer = [0_u8; 64 * 1024];
-    loop {
-        let read = reader.read(&mut buffer)?;
-        if read == 0 {
-            break;
-        }
-        output.write_all(&buffer[..read])?;
-        downloaded += read as u64;
-        if let Some(total) = total.filter(|total| *total > 0) {
-            let percent = (downloaded as f64 / total as f64 * 100.0).min(100.0);
+    sabine_runtime::download_file_with_progress(
+        url,
+        &temporary,
+        Some(size),
+        8 * 1024 * 1024 * 1024,
+        &mut |update| {
+            let portion = update.downloaded as f32 / size as f32;
             on_progress(PrepareProgress {
                 stage: PrepareStage::Service,
-                message: format!("Downloading Sabine service ({percent:.0}%)"),
-                fraction: Some(0.02 + (percent as f32 / 100.0) * 0.06),
+                message: format!("Downloading Sabine service ({:.0}%)", portion * 100.0),
+                fraction: Some(0.02 + portion * 0.06),
             });
-        }
-    }
-    output.flush()?;
-    output.sync_all()?;
+        },
+    )?;
     replace_file(&temporary, destination)?;
     Ok(())
 }
@@ -151,15 +135,7 @@ pub(super) fn fetch_system_manifest(
             "Sabine release manifest must use HTTPS".to_string(),
         ));
     }
-    let mut response = ureq::get(&url).call().map_err(|error| {
-        ServiceError::Update(format!("release manifest request failed: {error}"))
-    })?;
-    let body = response
-        .body_mut()
-        .read_to_vec()
-        .map_err(|error| ServiceError::Update(format!("release manifest read failed: {error}")))?;
-    serde_json::from_slice(&body)
-        .map_err(|error| ServiceError::Update(format!("invalid Sabine release manifest: {error}")))
+    crate::http::fetch_manifest(&url)
 }
 
 fn system_manifest_url(required_version: Option<&str>) -> String {
