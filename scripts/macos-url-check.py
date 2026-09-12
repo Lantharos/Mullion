@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory(prefix="sabine-url-check-") as temporary:
     source.write_text(r'''
 use std::{io::Write, sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Duration};
 use winit::{application::ApplicationHandler, event::WindowEvent,
-    event_loop::{ActiveEventLoop, ControlFlow, EventLoop}, window::WindowId};
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop, run_on_demand::EventLoopExtRunOnDemand}, window::WindowId};
 type EventQueue = crossbeam_channel::Sender<sabine_platform::PlatformEvent>;
 #[path = "@MODULE@"] mod open_urls;
 struct App { done: Arc<AtomicBool> }
@@ -51,7 +51,7 @@ impl ApplicationHandler for App {
 }
 fn main() {
     std::fs::write("@PID@", std::process::id().to_string()).unwrap();
-    let event_loop = EventLoop::new().unwrap();
+    let mut event_loop = EventLoop::new().unwrap();
     let (sender, receiver) = crossbeam_channel::unbounded();
     let _events = open_urls::OpenUrlEvents::install(sender).unwrap();
     let done = Arc::new(AtomicBool::new(false));
@@ -73,7 +73,7 @@ fn main() {
         proxy.wake_up();
         success
     });
-    event_loop.run_app(&mut App { done }).unwrap();
+    event_loop.run_app_on_demand(&mut App { done }).unwrap();
     assert!(worker.join().unwrap(), "LaunchServices did not deliver both URL events");
 }
 '''.replace("@MODULE@", str(repository / "crates/sabine/src/desktop/macos/open_urls.rs"))
